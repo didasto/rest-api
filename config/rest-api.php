@@ -34,7 +34,7 @@ return [
     */
 
     'defaults' => [
-        'actions'      => ['list', 'show', 'store', 'update', 'delete'],
+        'actions'      => ['index', 'show', 'store', 'update', 'destroy'],
         'parameter'    => 'id',
         'key'          => null,
         'per_page'     => 25,
