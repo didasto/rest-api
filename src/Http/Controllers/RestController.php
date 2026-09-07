@@ -3,7 +3,7 @@
 namespace Didasto\RestApi\Http\Controllers;
 
 use Didasto\RestApi\Attributes\RestResource;
-use Didasto\RestApi\Http\Requests\ListRequest;
+use Didasto\RestApi\Http\Requests\IndexRequest;
 use Didasto\RestApi\Http\Requests\RestRequest;
 use Didasto\RestApi\Query\QueryBuilder;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -20,31 +20,31 @@ use RuntimeException;
  * Alles ist public oder protected und ohne final - jede Stufe laesst sich
  * einzeln ersetzen, ohne die uebrigen anzufassen.
  *
- *   #[RestResource(model: Mitglied::class, except: ['delete'])]
+ *   #[RestResource(model: Mitglied::class, except: ['destroy'])]
  *   class MitgliedController extends RestController
  *   {
- *       protected ?string $listRequest   = MitgliedListRequest::class;
- *       protected ?string $storeRequest  = MitgliedStoreRequest::class;
- *       protected ?string $updateRequest = MitgliedStoreRequest::class;
+ *       public function requestFor(string $action): ?string
+ *       {
+ *           return match ($action) {
+ *               'index'  => MitgliedIndexRequest::class,
+ *               'store'  => MitgliedStoreRequest::class,
+ *               'update' => MitgliedUpdateRequest::class,
+ *               default  => null,
+ *           };
+ *       }
  *   }
  */
 abstract class RestController
 {
     protected ?string $model = null;
 
-    protected ?string $listRequest = null;
-
-    protected ?string $storeRequest = null;
-
-    protected ?string $updateRequest = null;
-
     /** Spalte, ueber die geladen wird. null = Primaerschluessel. */
     protected ?string $key = null;
 
     // ------------------------------------------------------------- Aktionen
-    public function list(Request $request): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $form = $this->formRequest('list');
+        $form = $this->formRequest('index');
 
         $builder = new QueryBuilder(
             request: $request,
@@ -59,6 +59,8 @@ abstract class RestController
 
     public function show(Request $request, string|int $id): JsonResponse
     {
+        $this->formRequest('show');   // nur fuer authorize(), falls hinterlegt
+
         return $this->item($this->find($id));
     }
 
@@ -84,8 +86,10 @@ abstract class RestController
         return $this->item($model);
     }
 
-    public function delete(Request $request, string|int $id): JsonResponse
+    public function destroy(Request $request, string|int $id): JsonResponse
     {
+        $this->formRequest('destroy');   // nur fuer authorize(), falls hinterlegt
+
         $this->find($id)->delete();
 
         return new JsonResponse(null, 204);
@@ -153,37 +157,48 @@ abstract class RestController
     }
 
     // ------------------------------------------------------------- Requests
-    /** @return array<string, ?string> */
-    public function requestMap(): array
+    /**
+     * Welche Request-Klasse zu welcher Aktion gehoert. Die eine Stelle,
+     * an der das steht - hier laesst sich auch nach Rolle, Mandant oder
+     * API-Version unterscheiden.
+     *
+     *   public function requestFor(string $action): ?string
+     *   {
+     *       return match ($action) {
+     *           'index'  => MitgliedIndexRequest::class,
+     *           'show'   => MitgliedShowRequest::class,
+     *           'store'  => MitgliedStoreRequest::class,
+     *           'update' => MitgliedUpdateRequest::class,
+     *           'destroy' => MitgliedDestroyRequest::class,
+     *           default  => null,
+     *       };
+     *   }
+     *
+     * null bedeutet: keine Request-Klasse. Fuer index faellt das Package
+     * dann auf IndexRequest zurueck, show und destroy laufen ohne, store
+     * und update brauchen zwingend eine.
+     */
+    public function requestFor(string $action): ?string
     {
-        return [
-            'list'   => $this->listRequest,
-            'store'  => $this->storeRequest,
-            'update' => $this->updateRequest,
-        ];
-    }
-
-    public function requestClass(string $action): ?string
-    {
-        return $this->requestMap()[$action] ?? null;
+        return null;
     }
 
     /**
      * Aufloesen ueber den Container - dabei validiert Laravel den Request
      * selbst und wirft bei Fehlern die uebliche 422-Antwort.
      */
-    public function formRequest(string $action): RestRequest
+    public function formRequest(string $action): ?RestRequest
     {
-        $class = $this->requestClass($action);
+        $class = $this->requestFor($action);
 
         if (! $class) {
-            if ($action === 'list') {
-                return app(ListRequest::class);
-            }
-
-            throw new RuntimeException(
-                static::class.": fuer '{$action}' ist keine Request-Klasse gesetzt (\$".$action.'Request).'
-            );
+            return match ($action) {
+                'index'          => app(IndexRequest::class),
+                'show', 'destroy' => null,
+                default          => throw new RuntimeException(
+                    static::class.": requestFor('{$action}') liefert keine Request-Klasse."
+                ),
+            };
         }
 
         return app($class);

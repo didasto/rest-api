@@ -7,10 +7,10 @@ use Attribute;
 /**
  * Macht aus einem Controller eine Model-Ressource.
  *
- *   #[RestResource(model: Mitglied::class, except: ['delete'])]
+ *   #[RestResource(model: Mitglied::class, except: ['destroy'])]
  *   class MitgliedController extends RestController {}
  *
- * Aktionen: list, show, store, update (PUT und PATCH), delete.
+ * Aktionen: index, show, store, update (PUT und PATCH), destroy.
  */
 #[Attribute(Attribute::TARGET_CLASS)]
 class RestResource

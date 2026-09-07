@@ -22,11 +22,11 @@ class ResourceRegistrar
 {
     /** Aktion => [HTTP-Verben, hat Parameter] */
     public array $map = [
-        'list'   => [['GET'], false],
+        'index'  => [['GET'], false],
         'store'  => [['POST'], false],
         'show'   => [['GET'], true],
         'update' => [['PUT', 'PATCH'], true],
-        'delete' => [['DELETE'], true],
+        'destroy'=> [['DELETE'], true],
     ];
 
     public function __construct(

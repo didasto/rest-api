@@ -221,7 +221,8 @@ abstract class JobController
         return $attribute->key;
     }
 
-    public function requestClass(string $action): ?string
+    /** Wie bei den Ressourcen: eine Stelle, an der die Requests stehen. */
+    public function requestFor(string $action): ?string
     {
         return $action === 'store' ? $this->storeRequest : null;
     }
