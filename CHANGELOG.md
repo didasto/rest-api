@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-09-07
 ### Added
 - Antwort-Schemas werden aus den Tabellenspalten des Models abgeleitet, wenn
   keine Store- oder Update-Request existiert. Casts, versteckte Felder und
