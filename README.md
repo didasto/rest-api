@@ -388,3 +388,21 @@ public function jobs(?JobData $data): array
 Ketten zaehlen mit jedem Glied in `total` - drei verkettete Jobs sind
 drei Schritte, keiner. Die Lauf-Nummer haengt das Package selbst an jeden
 Job; im Job ist dafuer nichts zu tun.
+
+### Woher die Felder eines Schemas kommen
+
+Zwei Quellen, in dieser Reihenfolge:
+
+1. **Die Tabellenspalten des Models.** Damit steht auch bei einer reinen
+   Lese-API ein vollstaendiges Schema in der Doku. Beruecksichtigt werden
+   `$casts` (auch Enum-Casts werden zu `enum`), `$hidden` und die
+   Zeitstempel; Primaerschluessel und `created_at`/`updated_at` sind
+   `readOnly`.
+2. **Die Regeln der Update- bzw. Store-Request.** Sie ueberschreiben, was
+   aus der Tabelle kam - `max:64` wird zu `maxLength`, `in:a,b` zu `enum`,
+   `email` zu `format`.
+
+Steht keine Datenbank zur Verfuegung (Pipeline, `route:cache`), faellt der
+Generator still auf `id`, `created_at` und `updated_at` zurueck - die Doku
+wird also nie zum Grund, warum ein Build scheitert. Abschalten laesst sich
+der erste Schritt ueber `openapi.schema_from_model => false`.

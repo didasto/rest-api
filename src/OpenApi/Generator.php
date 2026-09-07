@@ -31,7 +31,10 @@ class Generator
         public Router $router,
         public RuleMapper $mapper,
         public array $config = [],
-    ) {}
+        public ?ModelSchema $models = null,
+    ) {
+        $this->models ??= new ModelSchema();
+    }
 
     public function generate(): array
     {
@@ -45,7 +48,7 @@ class Generator
 
         ksort($paths);
 
-        return array_filter([
+        return $this->asObjects(array_filter([
             'openapi'    => '3.1.0',
             'info'       => $this->config['openapi']['info'] ?? ['title' => 'API', 'version' => '1.0.0'],
             'servers'    => $this->config['openapi']['servers'] ?? null,
@@ -56,7 +59,30 @@ class Generator
                     ?? $this->config['openapi']['security_schemes']
                     ?? null,
             ]),
-        ]);
+        ]));
+    }
+
+    /**
+     * Ein leeres properties muss im JSON {} sein, nicht [] - sonst ist das
+     * Dokument nach OpenAPI ungueltig und Generatoren steigen aus.
+     */
+    public function asObjects(mixed $node): mixed
+    {
+        if (! is_array($node)) {
+            return $node;
+        }
+
+        foreach ($node as $key => $value) {
+            if (in_array($key, ['properties', 'schemas', 'headers', 'responses'], true) && $value === []) {
+                $node[$key] = new \stdClass();
+
+                continue;
+            }
+
+            $node[$key] = $this->asObjects($value);
+        }
+
+        return $node;
     }
 
     // ------------------------------------------------------------- Routen
@@ -336,12 +362,16 @@ class Generator
         if (in_array($action, ['store', 'update'], true)) {
             $rules = $this->rulesFor($class, $action);
 
-            $spec['requestBody'] = [
-                'required' => true,
-                'content'  => ['application/json' => ['schema' => $this->mapper->toSchema(
-                    $verb === 'PATCH' ? $this->partial($rules) : $rules,
-                )]],
-            ];
+            // Ohne Request-Klasse gibt es nichts zu beschreiben - ein leerer
+            // Body in der Doku waere schlechter als gar keiner.
+            if ($rules !== []) {
+                $spec['requestBody'] = [
+                    'required' => true,
+                    'content'  => ['application/json' => ['schema' => $this->mapper->toSchema(
+                        $verb === 'PATCH' ? $this->partial($rules) : $rules,
+                    )]],
+                ];
+            }
 
             if ($verb === 'PATCH') {
                 $spec['summary']     = "{$name} teilweise aktualisieren";
@@ -559,13 +589,11 @@ class Generator
 
         unset($schema['required']);
 
-        $schema['properties'] = array_merge(
-            ['id' => ['type' => 'integer', 'readOnly' => true]],
+        // Reihenfolge: Tabellenspalten als Basis, darueber die Regeln der
+        // Request-Klassen - die wissen mehr (maxLength, enum, format).
+        $schema['properties'] = $this->properties(
+            $resource->model,
             $schema['properties'] ?? [],
-            [
-                'created_at' => ['type' => 'string', 'format' => 'date-time', 'readOnly' => true],
-                'updated_at' => ['type' => 'string', 'format' => 'date-time', 'readOnly' => true],
-            ],
         );
 
         foreach ($this->annotations($class) as $annotation) {
@@ -584,6 +612,32 @@ class Generator
         }
 
         return $this->schemas[$name] = $schema;
+    }
+
+    /**
+     * Felder der Ressource: Spalten der Tabelle, ueberschrieben von dem,
+     * was die Request-Regeln hergeben.
+     */
+    public function properties(string $model, array $fromRules): array
+    {
+        $columns = ($this->config['openapi']['schema_from_model'] ?? true)
+            ? $this->models->properties($model)
+            : [];
+
+        if ($columns === []) {
+            // Ohne Datenbank bleibt es beim bisherigen Verhalten.
+            $columns = [
+                'id'         => ['type' => 'integer', 'readOnly' => true],
+                'created_at' => ['type' => 'string', 'format' => 'date-time', 'readOnly' => true],
+                'updated_at' => ['type' => 'string', 'format' => 'date-time', 'readOnly' => true],
+            ];
+        }
+
+        foreach ($fromRules as $field => $property) {
+            $columns[$field] = array_merge($columns[$field] ?? [], $property);
+        }
+
+        return $columns;
     }
 
     /** @return array<int, ApiSchema> */

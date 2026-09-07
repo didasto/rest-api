@@ -75,6 +75,13 @@ return [
         'exclude'    => ['api/doc'],
         'cache'      => env('REST_API_DOC_CACHE', false),
 
+        /*
+        | Felder der Antwort-Schemas aus den Tabellenspalten ableiten, wenn
+        | (noch) keine Store- oder Update-Request existiert. Die Regeln der
+        | Request-Klassen bleiben die genauere Quelle und ueberschreiben.
+        */
+        'schema_from_model' => true,
+
         'info' => [
             'title'       => env('APP_NAME', 'API').' API',
             'version'     => '1.0.0',
