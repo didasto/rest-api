@@ -12,12 +12,18 @@ jede Stufe laesst sich einzeln ersetzen.
 use Didasto\RestApi\Attributes\RestResource;
 use Didasto\RestApi\Http\Controllers\RestController;
 
-#[RestResource(model: Mitglied::class, uri: 'mitglieder', except: ['delete'])]
+#[RestResource(model: Mitglied::class, uri: 'mitglieder', except: ['destroy'])]
 class MitgliedController extends RestController
 {
-    protected ?string $listRequest   = MitgliedListRequest::class;
-    protected ?string $storeRequest  = MitgliedStoreRequest::class;
-    protected ?string $updateRequest = MitgliedStoreRequest::class;
+    public function requestFor(string $action): ?string
+    {
+        return match ($action) {
+            'index'  => MitgliedIndexRequest::class,
+            'store'  => MitgliedStoreRequest::class,
+            'update' => MitgliedUpdateRequest::class,
+            default  => null,
+        };
+    }
 
     // Optional - Standard ist $model->toArray()
     public function transform(Model $model): array
@@ -31,20 +37,29 @@ Daraus entstehen:
 
 | Aktion   | Route                          | Name                 |
 |----------|--------------------------------|----------------------|
-| `list`   | `GET    /api/mitglieder`       | `mitglieder.list`    |
+| `index`  | `GET    /api/mitglieder`       | `mitglieder.index`   |
 | `show`   | `GET    /api/mitglieder/{id}`  | `mitglieder.show`    |
 | `store`  | `POST   /api/mitglieder`       | `mitglieder.store`   |
 | `update` | `PUT|PATCH /api/mitglieder/{id}` | `mitglieder.update`|
-| `delete` | `DELETE /api/mitglieder/{id}`  | `mitglieder.delete`  |
+| `destroy`| `DELETE /api/mitglieder/{id}`  | `mitglieder.destroy` |
 
-`only:` schaltet einzelne an, `except:` einzelne ab. Bei `PATCH` werden
-`required`-Regeln automatisch zu `sometimes` - ein Teil-Update muss nicht
-das ganze Objekt mitschicken.
+`only:` schaltet einzelne an, `except:` einzelne ab.
+
+`requestFor()` ist die einzige Stelle, an der steht, welche Request zu
+welcher Aktion gehoert - hier laesst sich auch nach Rolle, Mandant oder
+API-Version unterscheiden. `null` heisst: keine Request-Klasse. Fuer
+`index` faellt das Package dann auf `IndexRequest` zurueck, `show` und
+`destroy` laufen ohne, `store` und `update` brauchen zwingend eine. Eine
+Request fuer `show` oder `destroy` lohnt sich, wenn du dort `authorize()`
+brauchst.
+
+`PUT` und `PATCH` teilen sich eine Route und dieselben Regeln. Wer ein
+Teil-Update erlauben will, schreibt `sometimes` in die Regel.
 
 ## Request-Klasse
 
 ```php
-class MitgliedListRequest extends RestRequest
+class MitgliedIndexRequest extends IndexRequest
 {
     public function filters(): array
     {

@@ -343,7 +343,7 @@ class Generator
             $spec['description'] = $operation->description;
         }
 
-        if ($action === 'list') {
+        if ($action === 'index') {
             $spec['parameters'] = array_merge($spec['parameters'], $this->queryParameters($class));
             $spec['responses']  = [
                 '200' => [
@@ -367,16 +367,14 @@ class Generator
             if ($rules !== []) {
                 $spec['requestBody'] = [
                     'required' => true,
-                    'content'  => ['application/json' => ['schema' => $this->mapper->toSchema(
-                        $verb === 'PATCH' ? $this->partial($rules) : $rules,
-                    )]],
+                    'content'  => ['application/json' => ['schema' => $this->mapper->toSchema($rules)]],
                 ];
             }
 
+            // PUT und PATCH nehmen dieselben Regeln entgegen. Eine
+            // operationId darf im Dokument nur einmal vorkommen.
             if ($verb === 'PATCH') {
-                $spec['summary']     = "{$name} teilweise aktualisieren";
-                $spec['description'] = 'Nur die mitgeschickten Felder werden geaendert; required-Regeln gelten hier als sometimes.';
-                $spec['operationId'] = ($spec['operationId'] ?? '').'Partial';
+                $spec['operationId'] = ($spec['operationId'] ?? '').'Patch';
             }
         }
 
@@ -388,11 +386,11 @@ class Generator
     public function summary(string $action, string $name, string $verb): string
     {
         return match ($action) {
-            'list'   => "{$name} auflisten",
+            'index'  => "{$name} auflisten",
             'show'   => "{$name} anzeigen",
             'store'  => "{$name} anlegen",
             'update' => "{$name} aktualisieren",
-            'delete' => "{$name} loeschen",
+            'destroy' => "{$name} loeschen",
             default  => Str::headline($action),
         };
     }
@@ -404,7 +402,7 @@ class Generator
         return match ($action) {
             'store'  => ['201' => ['description' => 'Angelegt'] + $body, '422' => $this->validationError()],
             'update' => ['200' => ['description' => 'Aktualisiert'] + $body, '404' => ['description' => 'Nicht gefunden'], '422' => $this->validationError()],
-            'delete' => ['204' => ['description' => 'Geloescht'], '404' => ['description' => 'Nicht gefunden']],
+            'destroy' => ['204' => ['description' => 'Geloescht'], '404' => ['description' => 'Nicht gefunden']],
             default  => ['200' => ['description' => 'OK'] + $body, '404' => ['description' => 'Nicht gefunden']],
         };
     }
@@ -458,9 +456,7 @@ class Generator
             if (in_array($verb, ['POST', 'PUT', 'PATCH'], true) && $rules !== []) {
                 $spec['requestBody'] = [
                     'required' => true,
-                    'content'  => ['application/json' => ['schema' => $this->mapper->toSchema(
-                        $verb === 'PATCH' ? $this->partial($rules) : $rules,
-                    )]],
+                    'content'  => ['application/json' => ['schema' => $this->mapper->toSchema($rules)]],
                 ];
             }
 
@@ -501,7 +497,7 @@ class Generator
 
     public function queryParameters(string $class): array
     {
-        $request = $this->listRequest($class);
+        $request = $this->indexRequest($class);
         $keys    = $this->config['query'] ?? [];
 
         $parameters = $request ? $this->filterParameters($request->filterSet()) : [];
@@ -653,7 +649,7 @@ class Generator
     public function rulesFor(string $controller, string $action): array
     {
         $instance = $this->controller($controller);
-        $class    = $instance?->requestClass($action);
+        $class    = $instance?->requestFor($action);
 
         if (! $class) {
             return [];
@@ -664,9 +660,9 @@ class Generator
         return $request ? $this->safeRules($request) : [];
     }
 
-    public function listRequest(string $controller): ?RestRequest
+    public function indexRequest(string $controller): ?RestRequest
     {
-        $class = $this->controller($controller)?->requestClass('list');
+        $class = $this->controller($controller)?->requestFor('index');
 
         return $class ? $this->instantiate($class) : null;
     }
@@ -701,19 +697,4 @@ class Generator
         }
     }
 
-    public function partial(array $rules): array
-    {
-        $partial = [];
-
-        foreach ($rules as $field => $rule) {
-            $list = is_string($rule) ? explode('|', $rule) : (array) $rule;
-
-            $partial[$field] = array_values(array_filter(
-                $list,
-                fn ($item) => ! (is_string($item) && $item === 'required'),
-            ));
-        }
-
-        return $partial;
-    }
 }

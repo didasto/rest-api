@@ -12,9 +12,10 @@ use Illuminate\Foundation\Http\FormRequest;
  * filters()    deklariert die erlaubten Query-Filter.
  * sortable()   und relations() begrenzen ?sort und ?with.
  *
- * Bei PATCH werden required-Regeln automatisch zu sometimes - ein
- * Teil-Update muss nicht das ganze Objekt mitschicken. Wer das nicht
- * will, ueberschreibt partialRules().
+ * PUT und PATCH teilen sich dieselben Regeln. Wer ein Teil-Update
+ * erlauben will, schreibt sometimes selbst in die Regel - frueher hat das
+ * Package required automatisch umgeschrieben, was bei required_with,
+ * prohibited_unless oder Rule-Objekten stillschweigend das Falsche tat.
  */
 class RestRequest extends FormRequest
 {
@@ -51,31 +52,4 @@ class RestRequest extends FormRequest
         return FilterSet::fromDeclaration($this->filters());
     }
 
-    protected function validationRules(): array
-    {
-        $rules = parent::validationRules();
-
-        return $this->isMethod('PATCH') ? $this->partialRules($rules) : $rules;
-    }
-
-    /** required wird zu sometimes, alles andere bleibt. */
-    public function partialRules(array $rules): array
-    {
-        $partial = [];
-
-        foreach ($rules as $field => $rule) {
-            $list = is_string($rule) ? explode('|', $rule) : (array) $rule;
-
-            $list = array_values(array_filter(
-                $list,
-                fn ($item) => ! (is_string($item) && $item === 'required'),
-            ));
-
-            array_unshift($list, 'sometimes');
-
-            $partial[$field] = $list;
-        }
-
-        return $partial;
-    }
 }
