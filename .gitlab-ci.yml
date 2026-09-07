@@ -1,0 +1,61 @@
+stages:
+  - validate
+  - release
+
+default:
+  image: alpine:3.20
+  before_script:
+    - apk add --no-cache git curl python3 >/dev/null
+
+# ---------------------------------------------------------------
+# Läuft bei jedem Merge Request: prüft composer.json und ob der
+# CHANGELOG einen gefüllten [Unreleased]-Abschnitt hat.
+# ---------------------------------------------------------------
+validate:
+  stage: validate
+  image: composer:2
+  before_script: []
+  script:
+    - composer validate --strict --no-check-publish
+    - |
+      apk add --no-cache python3 >/dev/null
+      python3 .gitlab/scripts/release.py --check
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+# ---------------------------------------------------------------
+# Läuft nach dem Merge in main: ermittelt aus dem CHANGELOG den
+# Bump (major/minor/patch), schreibt den CHANGELOG fort, taggt und
+# meldet die Version an die GitLab Composer Registry.
+# ---------------------------------------------------------------
+release:
+  stage: release
+  script:
+    - git config user.email "ci@bremalu.de"
+    - git config user.name "GitLab CI"
+    - git remote set-url origin "https://oauth2:${RELEASE_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
+    - git fetch --tags --quiet
+    - |
+      set -e
+      python3 .gitlab/scripts/release.py > release.env || rc=$?
+      if [ "${rc:-0}" = "78" ]; then
+        echo "Kein [Unreleased]-Eintrag im CHANGELOG - kein Release."
+        exit 0
+      fi
+      . ./release.env
+      echo "Neue Version: $NEW_VERSION (Bump: $BUMP)"
+
+      git add CHANGELOG.md
+      git commit -m "chore(release): $NEW_VERSION [skip ci]"
+      git tag -a "$NEW_VERSION" -m "Release $NEW_VERSION"
+      git push origin HEAD:$CI_DEFAULT_BRANCH
+      git push origin "$NEW_VERSION"
+
+      curl --fail --silent --show-error \
+        --header "JOB-TOKEN: $CI_JOB_TOKEN" \
+        --data tag="$NEW_VERSION" \
+        "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/composer"
+      echo ""
+      echo "Veroeffentlicht: $NEW_VERSION"
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_TITLE !~ /^chore\(release\)/
