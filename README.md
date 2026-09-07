@@ -12,12 +12,18 @@ jede Stufe laesst sich einzeln ersetzen.
 use Didasto\RestApi\Attributes\RestResource;
 use Didasto\RestApi\Http\Controllers\RestController;
 
-#[RestResource(model: Mitglied::class, uri: 'mitglieder', except: ['delete'])]
+#[RestResource(model: Mitglied::class, uri: 'mitglieder', except: ['destroy'])]
 class MitgliedController extends RestController
 {
-    protected ?string $listRequest   = MitgliedListRequest::class;
-    protected ?string $storeRequest  = MitgliedStoreRequest::class;
-    protected ?string $updateRequest = MitgliedStoreRequest::class;
+    public function requestFor(string $action): ?string
+    {
+        return match ($action) {
+            'index'  => MitgliedIndexRequest::class,
+            'store'  => MitgliedStoreRequest::class,
+            'update' => MitgliedUpdateRequest::class,
+            default  => null,
+        };
+    }
 
     // Optional - Standard ist $model->toArray()
     public function transform(Model $model): array
@@ -31,20 +37,29 @@ Daraus entstehen:
 
 | Aktion   | Route                          | Name                 |
 |----------|--------------------------------|----------------------|
-| `list`   | `GET    /api/mitglieder`       | `mitglieder.list`    |
+| `index`  | `GET    /api/mitglieder`       | `mitglieder.index`   |
 | `show`   | `GET    /api/mitglieder/{id}`  | `mitglieder.show`    |
 | `store`  | `POST   /api/mitglieder`       | `mitglieder.store`   |
 | `update` | `PUT|PATCH /api/mitglieder/{id}` | `mitglieder.update`|
-| `delete` | `DELETE /api/mitglieder/{id}`  | `mitglieder.delete`  |
+| `destroy`| `DELETE /api/mitglieder/{id}`  | `mitglieder.destroy` |
 
-`only:` schaltet einzelne an, `except:` einzelne ab. Bei `PATCH` werden
-`required`-Regeln automatisch zu `sometimes` - ein Teil-Update muss nicht
-das ganze Objekt mitschicken.
+`only:` schaltet einzelne an, `except:` einzelne ab.
+
+`requestFor()` ist die einzige Stelle, an der steht, welche Request zu
+welcher Aktion gehoert - hier laesst sich auch nach Rolle, Mandant oder
+API-Version unterscheiden. `null` heisst: keine Request-Klasse. Fuer
+`index` faellt das Package dann auf `IndexRequest` zurueck, `show` und
+`destroy` laufen ohne, `store` und `update` brauchen zwingend eine. Eine
+Request fuer `show` oder `destroy` lohnt sich, wenn du dort `authorize()`
+brauchst.
+
+`PUT` und `PATCH` teilen sich eine Route und dieselben Regeln. Wer ein
+Teil-Update erlauben will, schreibt `sometimes` in die Regel.
 
 ## Request-Klasse
 
 ```php
-class MitgliedListRequest extends RestRequest
+class MitgliedIndexRequest extends IndexRequest
 {
     public function filters(): array
     {
@@ -388,3 +403,21 @@ public function jobs(?JobData $data): array
 Ketten zaehlen mit jedem Glied in `total` - drei verkettete Jobs sind
 drei Schritte, keiner. Die Lauf-Nummer haengt das Package selbst an jeden
 Job; im Job ist dafuer nichts zu tun.
+
+### Woher die Felder eines Schemas kommen
+
+Zwei Quellen, in dieser Reihenfolge:
+
+1. **Die Tabellenspalten des Models.** Damit steht auch bei einer reinen
+   Lese-API ein vollstaendiges Schema in der Doku. Beruecksichtigt werden
+   `$casts` (auch Enum-Casts werden zu `enum`), `$hidden` und die
+   Zeitstempel; Primaerschluessel und `created_at`/`updated_at` sind
+   `readOnly`.
+2. **Die Regeln der Update- bzw. Store-Request.** Sie ueberschreiben, was
+   aus der Tabelle kam - `max:64` wird zu `maxLength`, `in:a,b` zu `enum`,
+   `email` zu `format`.
+
+Steht keine Datenbank zur Verfuegung (Pipeline, `route:cache`), faellt der
+Generator still auf `id`, `created_at` und `updated_at` zurueck - die Doku
+wird also nie zum Grund, warum ein Build scheitert. Abschalten laesst sich
+der erste Schritt ueber `openapi.schema_from_model => false`.

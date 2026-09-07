@@ -31,7 +31,10 @@ class Generator
         public Router $router,
         public RuleMapper $mapper,
         public array $config = [],
-    ) {}
+        public ?ModelSchema $models = null,
+    ) {
+        $this->models ??= new ModelSchema();
+    }
 
     public function generate(): array
     {
@@ -45,7 +48,7 @@ class Generator
 
         ksort($paths);
 
-        return array_filter([
+        return $this->asObjects(array_filter([
             'openapi'    => '3.1.0',
             'info'       => $this->config['openapi']['info'] ?? ['title' => 'API', 'version' => '1.0.0'],
             'servers'    => $this->config['openapi']['servers'] ?? null,
@@ -56,7 +59,30 @@ class Generator
                     ?? $this->config['openapi']['security_schemes']
                     ?? null,
             ]),
-        ]);
+        ]));
+    }
+
+    /**
+     * Ein leeres properties muss im JSON {} sein, nicht [] - sonst ist das
+     * Dokument nach OpenAPI ungueltig und Generatoren steigen aus.
+     */
+    public function asObjects(mixed $node): mixed
+    {
+        if (! is_array($node)) {
+            return $node;
+        }
+
+        foreach ($node as $key => $value) {
+            if (in_array($key, ['properties', 'schemas', 'headers', 'responses'], true) && $value === []) {
+                $node[$key] = new \stdClass();
+
+                continue;
+            }
+
+            $node[$key] = $this->asObjects($value);
+        }
+
+        return $node;
     }
 
     // ------------------------------------------------------------- Routen
@@ -317,7 +343,7 @@ class Generator
             $spec['description'] = $operation->description;
         }
 
-        if ($action === 'list') {
+        if ($action === 'index') {
             $spec['parameters'] = array_merge($spec['parameters'], $this->queryParameters($class));
             $spec['responses']  = [
                 '200' => [
@@ -336,17 +362,19 @@ class Generator
         if (in_array($action, ['store', 'update'], true)) {
             $rules = $this->rulesFor($class, $action);
 
-            $spec['requestBody'] = [
-                'required' => true,
-                'content'  => ['application/json' => ['schema' => $this->mapper->toSchema(
-                    $verb === 'PATCH' ? $this->partial($rules) : $rules,
-                )]],
-            ];
+            // Ohne Request-Klasse gibt es nichts zu beschreiben - ein leerer
+            // Body in der Doku waere schlechter als gar keiner.
+            if ($rules !== []) {
+                $spec['requestBody'] = [
+                    'required' => true,
+                    'content'  => ['application/json' => ['schema' => $this->mapper->toSchema($rules)]],
+                ];
+            }
 
+            // PUT und PATCH nehmen dieselben Regeln entgegen. Eine
+            // operationId darf im Dokument nur einmal vorkommen.
             if ($verb === 'PATCH') {
-                $spec['summary']     = "{$name} teilweise aktualisieren";
-                $spec['description'] = 'Nur die mitgeschickten Felder werden geaendert; required-Regeln gelten hier als sometimes.';
-                $spec['operationId'] = ($spec['operationId'] ?? '').'Partial';
+                $spec['operationId'] = ($spec['operationId'] ?? '').'Patch';
             }
         }
 
@@ -358,11 +386,11 @@ class Generator
     public function summary(string $action, string $name, string $verb): string
     {
         return match ($action) {
-            'list'   => "{$name} auflisten",
+            'index'  => "{$name} auflisten",
             'show'   => "{$name} anzeigen",
             'store'  => "{$name} anlegen",
             'update' => "{$name} aktualisieren",
-            'delete' => "{$name} loeschen",
+            'destroy' => "{$name} loeschen",
             default  => Str::headline($action),
         };
     }
@@ -374,7 +402,7 @@ class Generator
         return match ($action) {
             'store'  => ['201' => ['description' => 'Angelegt'] + $body, '422' => $this->validationError()],
             'update' => ['200' => ['description' => 'Aktualisiert'] + $body, '404' => ['description' => 'Nicht gefunden'], '422' => $this->validationError()],
-            'delete' => ['204' => ['description' => 'Geloescht'], '404' => ['description' => 'Nicht gefunden']],
+            'destroy' => ['204' => ['description' => 'Geloescht'], '404' => ['description' => 'Nicht gefunden']],
             default  => ['200' => ['description' => 'OK'] + $body, '404' => ['description' => 'Nicht gefunden']],
         };
     }
@@ -428,9 +456,7 @@ class Generator
             if (in_array($verb, ['POST', 'PUT', 'PATCH'], true) && $rules !== []) {
                 $spec['requestBody'] = [
                     'required' => true,
-                    'content'  => ['application/json' => ['schema' => $this->mapper->toSchema(
-                        $verb === 'PATCH' ? $this->partial($rules) : $rules,
-                    )]],
+                    'content'  => ['application/json' => ['schema' => $this->mapper->toSchema($rules)]],
                 ];
             }
 
@@ -471,7 +497,7 @@ class Generator
 
     public function queryParameters(string $class): array
     {
-        $request = $this->listRequest($class);
+        $request = $this->indexRequest($class);
         $keys    = $this->config['query'] ?? [];
 
         $parameters = $request ? $this->filterParameters($request->filterSet()) : [];
@@ -559,13 +585,11 @@ class Generator
 
         unset($schema['required']);
 
-        $schema['properties'] = array_merge(
-            ['id' => ['type' => 'integer', 'readOnly' => true]],
+        // Reihenfolge: Tabellenspalten als Basis, darueber die Regeln der
+        // Request-Klassen - die wissen mehr (maxLength, enum, format).
+        $schema['properties'] = $this->properties(
+            $resource->model,
             $schema['properties'] ?? [],
-            [
-                'created_at' => ['type' => 'string', 'format' => 'date-time', 'readOnly' => true],
-                'updated_at' => ['type' => 'string', 'format' => 'date-time', 'readOnly' => true],
-            ],
         );
 
         foreach ($this->annotations($class) as $annotation) {
@@ -586,6 +610,32 @@ class Generator
         return $this->schemas[$name] = $schema;
     }
 
+    /**
+     * Felder der Ressource: Spalten der Tabelle, ueberschrieben von dem,
+     * was die Request-Regeln hergeben.
+     */
+    public function properties(string $model, array $fromRules): array
+    {
+        $columns = ($this->config['openapi']['schema_from_model'] ?? true)
+            ? $this->models->properties($model)
+            : [];
+
+        if ($columns === []) {
+            // Ohne Datenbank bleibt es beim bisherigen Verhalten.
+            $columns = [
+                'id'         => ['type' => 'integer', 'readOnly' => true],
+                'created_at' => ['type' => 'string', 'format' => 'date-time', 'readOnly' => true],
+                'updated_at' => ['type' => 'string', 'format' => 'date-time', 'readOnly' => true],
+            ];
+        }
+
+        foreach ($fromRules as $field => $property) {
+            $columns[$field] = array_merge($columns[$field] ?? [], $property);
+        }
+
+        return $columns;
+    }
+
     /** @return array<int, ApiSchema> */
     public function annotations(string $class): array
     {
@@ -599,7 +649,7 @@ class Generator
     public function rulesFor(string $controller, string $action): array
     {
         $instance = $this->controller($controller);
-        $class    = $instance?->requestClass($action);
+        $class    = $instance?->requestFor($action);
 
         if (! $class) {
             return [];
@@ -610,9 +660,9 @@ class Generator
         return $request ? $this->safeRules($request) : [];
     }
 
-    public function listRequest(string $controller): ?RestRequest
+    public function indexRequest(string $controller): ?RestRequest
     {
-        $class = $this->controller($controller)?->requestClass('list');
+        $class = $this->controller($controller)?->requestFor('index');
 
         return $class ? $this->instantiate($class) : null;
     }
@@ -647,19 +697,4 @@ class Generator
         }
     }
 
-    public function partial(array $rules): array
-    {
-        $partial = [];
-
-        foreach ($rules as $field => $rule) {
-            $list = is_string($rule) ? explode('|', $rule) : (array) $rule;
-
-            $partial[$field] = array_values(array_filter(
-                $list,
-                fn ($item) => ! (is_string($item) && $item === 'required'),
-            ));
-        }
-
-        return $partial;
-    }
 }
