@@ -1,6 +1,12 @@
 # Changelog
 
-## [Unreleased]
+## [Unreleased] [minor]
+
+### Fixed
+- Eine unbekannte Aktion in `defaults.actions` oder in `only`/`except` wurde
+  still uebersprungen - die Route fehlte dann kommentarlos. Jetzt gibt es eine
+  Exception, die den Namen, die erlaubten Aktionen und den wahrscheinlichen
+  Grund nennt (eine publizierte Config aus einer aelteren Version).
 
 ## [1.0.0] - 2026-09-07
 ### Added
