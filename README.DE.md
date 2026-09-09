@@ -1,5 +1,9 @@
 # didasto/rest-api
 
+[![Tests](https://github.com/didasto/rest-api/actions/workflows/tests.yml/badge.svg)](https://github.com/didasto/rest-api/actions/workflows/tests.yml)
+[![Latest release](https://img.shields.io/github/v/release/didasto/rest-api?sort=semver)](https://github.com/didasto/rest-api/releases)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 **[English](README.EN.md) · [Deutsch](README.DE.md)**
 
 Model-basierte und handgeschriebene REST-APIs für Laravel. Routing über
