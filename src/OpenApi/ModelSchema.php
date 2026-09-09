@@ -111,6 +111,21 @@ class ModelSchema
         return $properties;
     }
 
+    /**
+     * Felder, die der Client nicht setzen darf - Primaerschluessel und
+     * Zeitstempel. Ohne Model (oder ohne Datenbank) die ueblichen Namen.
+     *
+     * @return array<int, string>
+     */
+    public function readOnly(string $modelClass): array
+    {
+        $model = $this->model($modelClass);
+
+        return $model
+            ? $this->readOnlyFields($model)
+            : ['id', 'created_at', 'updated_at'];
+    }
+
     public function model(string $modelClass): ?Model
     {
         try {

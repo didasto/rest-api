@@ -6,6 +6,7 @@ use Didasto\RestApi\Attributes\RestJob;
 use Didasto\RestApi\Attributes\RestResource;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 use ReflectionClass;
 use SplFileInfo;
 use Symfony\Component\Finder\Finder;
@@ -154,7 +155,10 @@ class ResourceRegistrar
         $uri       = $resource->uri ?? $this->uriFor($resource->model);
         $name      = $resource->name ?? $uri;
         $parameter = $resource->parameter ?? $this->config['defaults']['parameter'] ?? 'id';
-        $actions   = $resource->actions($this->config['defaults']['actions'] ?? array_keys($this->map));
+        $actions   = $this->assertKnown(
+            $resource->actions($this->config['defaults']['actions'] ?? array_keys($this->map)),
+            $class,
+        );
 
         $group = array_filter([
             'prefix'     => $options['prefix'] ?? null,
@@ -166,10 +170,6 @@ class ResourceRegistrar
 
         $this->router->group($group, function () use ($class, $actions, $uri, $name, $parameter) {
             foreach ($actions as $action) {
-                if (! isset($this->map[$action])) {
-                    continue;
-                }
-
                 [$verbs, $hasParameter] = $this->map[$action];
 
                 $path = $hasParameter ? "{$uri}/{{$parameter}}" : $uri;
@@ -179,6 +179,34 @@ class ResourceRegistrar
                     ->name("{$name}.{$action}");
             }
         });
+    }
+
+    /**
+     * Eine unbekannte Aktion wurde frueher still uebersprungen - die Route
+     * fehlte dann einfach, ohne dass irgendwo etwas stand. Haeufigste
+     * Ursache: eine publizierte config/rest-api.php aus einer aelteren
+     * Version des Packages.
+     *
+     * @param  array<int, string>  $actions
+     * @return array<int, string>
+     */
+    public function assertKnown(array $actions, string $class): array
+    {
+        $unbekannt = array_diff($actions, array_keys($this->map));
+
+        if ($unbekannt !== []) {
+            throw new InvalidArgumentException(sprintf(
+                "%s: unbekannte Aktion%s %s. Erlaubt sind: %s. ".
+                'Steht der Name in einer publizierten config/rest-api.php, '.
+                'ist sie vermutlich aelter als das Package.',
+                $class,
+                count($unbekannt) === 1 ? '' : 'en',
+                "'".implode("', '", $unbekannt)."'",
+                implode(', ', array_keys($this->map)),
+            ));
+        }
+
+        return $actions;
     }
 
     /** Mitglied => mitglieder waere schoen, geht aber nur auf Englisch. */

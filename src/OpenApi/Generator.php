@@ -244,7 +244,10 @@ class Generator
             if ($rules !== []) {
                 $spec['requestBody'] = [
                     'required' => true,
-                    'content'  => ['application/json' => ['schema' => $this->mapper->toSchema($rules)]],
+                    'content'  => ['application/json' => ['schema' => $this->writable(
+                        $this->mapper->toSchema($rules),
+                        $resource->model,
+                    )]],
                 ];
             }
 
@@ -345,7 +348,7 @@ class Generator
 
         if ($action === 'index') {
             $spec['parameters'] = array_merge($spec['parameters'], $this->queryParameters($class));
-            $spec['responses']  = [
+            $spec['responses'] = [
                 '200' => [
                     'description' => 'Liste. Paginierung in den Headern X-Total-Count, X-Page, X-Per-Page, X-Last-Page und Link.',
                     'headers'     => $this->paginationHeaders(),
@@ -354,6 +357,7 @@ class Generator
                         'items' => ['$ref' => "#/components/schemas/{$name}"],
                     ]]],
                 ],
+                '422' => $this->queryError(),
             ];
 
             return array_filter($spec);
@@ -367,7 +371,10 @@ class Generator
             if ($rules !== []) {
                 $spec['requestBody'] = [
                     'required' => true,
-                    'content'  => ['application/json' => ['schema' => $this->mapper->toSchema($rules)]],
+                    'content'  => ['application/json' => ['schema' => $this->writable(
+                        $this->mapper->toSchema($rules),
+                        $resource->model,
+                    )]],
                 ];
             }
 
@@ -405,6 +412,18 @@ class Generator
             'destroy' => ['204' => ['description' => 'Geloescht'], '404' => ['description' => 'Nicht gefunden']],
             default  => ['200' => ['description' => 'OK'] + $body, '404' => ['description' => 'Nicht gefunden']],
         };
+    }
+
+    /** Unbekannter Filter, unbekannter Operator, gesperrte Sortierspalte. */
+    public function queryError(): array
+    {
+        return [
+            'description' => 'Ungueltige Query - unbekannter Filter, Operator oder Sortierspalte',
+            'content'     => ['application/json' => ['schema' => [
+                'type'       => 'object',
+                'properties' => ['message' => ['type' => 'string']],
+            ]]],
+        ];
     }
 
     public function validationError(): array
@@ -539,19 +558,30 @@ class Generator
         return $parameters;
     }
 
-    /** Aus jedem Filter wird ein eigener Query-Parameter. */
+    /**
+     * Ein Parameter je Feld statt einer je Operator.
+     *
+     * style deepObject ist in OpenAPI genau dafuer gedacht: der Parameter
+     * heisst filter[id], seine Felder sind die erlaubten Operatoren, und
+     * auf der Leitung steht weiterhin ?filter[id][gt]=5. Neun Zeilen in
+     * der Oberflaeche werden so zu einer.
+     */
     public function filterParameters(FilterSet $set): array
     {
         $key        = $this->config['query']['filter'] ?? 'filter';
         $parameters = [];
 
         foreach ($set->fields() as $field) {
-            $type = $set->type($field);
+            $type       = $set->type($field);
+            $properties = [];
+            $namen      = [];
 
             foreach ($set->operators($field) as $operator => $filter) {
                 $schema = $filter->schema();
 
-                if (($schema['type'] ?? 'string') === 'string' && $operator !== 'in' && $operator !== 'notIn' && $operator !== 'between') {
+                // Der Typ des Feldes gilt, ausser der Operator bringt einen
+                // eigenen mit (in und notIn nehmen Listen, null ein Boolean).
+                if (($schema['type'] ?? 'string') === 'string' && ! isset($schema['description'])) {
                     $schema['type'] = $type['type'];
 
                     if ($type['format']) {
@@ -559,13 +589,25 @@ class Generator
                     }
                 }
 
-                $parameters[] = [
-                    'name'        => "{$key}[{$field}][{$operator}]",
-                    'in'          => 'query',
-                    'description' => $filter->description(),
-                    'schema'      => $schema,
-                ];
+                $schema['description'] = $filter->description();
+
+                $properties[$operator] = $schema;
+                $namen[] = $operator;
             }
+
+            $parameters[] = [
+                'name'        => "{$key}[{$field}]",
+                'in'          => 'query',
+                'style'       => 'deepObject',
+                'explode'     => true,
+                'description' => 'Operatoren: '.implode(', ', $namen)
+                    .". Beispiel: {$key}[{$field}][".($namen[0] ?? 'eq').']=...',
+                'schema'      => [
+                    'type'                 => 'object',
+                    'properties'           => $properties,
+                    'additionalProperties' => false,
+                ],
+            ];
         }
 
         return $parameters;
@@ -608,6 +650,27 @@ class Generator
         }
 
         return $this->schemas[$name] = $schema;
+    }
+
+    /**
+     * Was der Client nicht setzen darf, gehoert auch nicht in den
+     * Request-Body: der Primaerschluessel und die Zeitstempel.
+     */
+    public function writable(array $schema, string $model): array
+    {
+        foreach ($this->models->readOnly($model) as $field) {
+            unset($schema['properties'][$field]);
+
+            if (isset($schema['required'])) {
+                $schema['required'] = array_values(array_diff($schema['required'], [$field]));
+
+                if ($schema['required'] === []) {
+                    unset($schema['required']);
+                }
+            }
+        }
+
+        return $schema;
     }
 
     /**
