@@ -2,7 +2,18 @@
 
 ## [Unreleased] [minor]
 
+### Changed
+- Filter stehen im OpenAPI-Dokument als **ein** Parameter je Feld
+  (`filter[id]`, `style: deepObject`) statt als einer je Operator. Aus neun
+  Zeilen fuer `IdFilter` wird eine mit den Operatoren als Objektfeldern; auf
+  der Leitung bleibt es `?filter[id][gt]=5`.
+- `index` weist 422 aus (unbekannter Filter, Operator oder Sortierspalte) -
+  das konnte die Route schon immer, es stand nur nicht in der Doku.
+
 ### Fixed
+- Der Request-Body von `store` und `update` enthaelt keine schreibgeschuetzten
+  Felder mehr: Primaerschluessel und Zeitstempel werden entfernt, auch wenn
+  eine Regel sie nennt.
 - Eine unbekannte Aktion in `defaults.actions` oder in `only`/`except` wurde
   still uebersprungen - die Route fehlte dann kommentarlos. Jetzt gibt es eine
   Exception, die den Namen, die erlaubten Aktionen und den wahrscheinlichen

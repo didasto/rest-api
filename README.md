@@ -421,3 +421,22 @@ Steht keine Datenbank zur Verfuegung (Pipeline, `route:cache`), faellt der
 Generator still auf `id`, `created_at` und `updated_at` zurueck - die Doku
 wird also nie zum Grund, warum ein Build scheitert. Abschalten laesst sich
 der erste Schritt ueber `openapi.schema_from_model => false`.
+
+### Filter in der Doku
+
+Im OpenAPI-Dokument steht **ein** Parameter je Feld, nicht einer je
+Operator: `filter[id]` mit `style: deepObject` und den erlaubten
+Operatoren als Objektfelder. Swagger und Scalar zeigen dafuer ein
+Eingabefeld statt neun Zeilen. An der URL aendert das nichts:
+
+```
+?filter[id][in]=1,5,6&filter[id][gt]=5&filter[name][like]=Mei
+```
+
+### Leere Liste
+
+`index` antwortet mit `200` und `[]`, wenn nichts passt - die Sammlung
+existiert, sie ist nur leer. Ein `404` wuerde "Filter trifft nichts"
+ununterscheidbar machen von "URL falsch geschrieben", und viele
+HTTP-Clients werfen darauf eine Exception. Wie viele Treffer es gab,
+steht in `X-Total-Count`.
