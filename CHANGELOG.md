@@ -1,7 +1,8 @@
 # Changelog
 
-## [Unreleased] [minor]
+## [Unreleased]
 
+## [1.1.0] - 2026-09-09
 ### Changed
 - Filter stehen im OpenAPI-Dokument als **ein** Parameter je Feld
   (`filter[id]`, `style: deepObject`) statt als einer je Operator. Aus neun
