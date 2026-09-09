@@ -19,12 +19,12 @@ check:
     - composer validate --strict --no-check-publish
     - composer install --no-interaction --no-progress --prefer-dist
     # php -l does not catch undefined variables - this does
-    - php .gitlab/scripts/undefined-variables.php src
+    - php scripts/undefined-variables.php src
     - vendor/bin/phpunit --no-coverage
     - |
       if [ "$CI_PIPELINE_SOURCE" = "merge_request_event" ]; then
         apk add --no-cache python3 >/dev/null 2>&1 || true
-        python3 .gitlab/scripts/release.py --check
+        python3 scripts/release.py --check
       fi
   cache:
     key:
@@ -56,7 +56,7 @@ release:
     - git fetch --tags --quiet
     - |
       set -e
-      python3 .gitlab/scripts/release.py > release.env || rc=$?
+      python3 scripts/release.py > release.env || rc=$?
       if [ "${rc:-0}" = "78" ]; then
         echo "No [Unreleased] entry in the CHANGELOG - nothing to release."
         exit 0

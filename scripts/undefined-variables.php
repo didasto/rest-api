@@ -10,7 +10,7 @@
  *     php .gitlab/scripts/undefined-variables.php src
  */
 
-require __DIR__.'/../../vendor/autoload.php';
+require __DIR__.'/../vendor/autoload.php';
 
 use PhpParser\Node;
 use PhpParser\NodeFinder;
