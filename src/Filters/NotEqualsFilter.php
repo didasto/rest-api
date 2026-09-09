@@ -18,6 +18,6 @@ class NotEqualsFilter extends Filter
 
     public function description(): string
     {
-        return 'ist ungleich';
+        return 'does not equal';
     }
 }

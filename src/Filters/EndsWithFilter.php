@@ -16,6 +16,6 @@ class EndsWithFilter extends LikeFilter
 
     public function description(): string
     {
-        return 'endet auf';
+        return 'ends with';
     }
 }

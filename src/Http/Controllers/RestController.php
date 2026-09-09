@@ -15,33 +15,45 @@ use ReflectionClass;
 use RuntimeException;
 
 /**
- * Basis fuer model-basierte Ressourcen.
+ * Base class for model backed resources.
  *
- * Alles ist public oder protected und ohne final - jede Stufe laesst sich
- * einzeln ersetzen, ohne die uebrigen anzufassen.
+ * Every method is public or protected and no class is final, so each step
+ * can be replaced on its own without touching the others. The methods
+ * below are the intended extension points:
  *
- *   #[RestResource(model: Mitglied::class, except: ['destroy'])]
- *   class MitgliedController extends RestController
- *   {
- *       public function requestFor(string $action): ?string
- *       {
- *           return match ($action) {
- *               'index'  => MitgliedIndexRequest::class,
- *               'store'  => MitgliedStoreRequest::class,
- *               'update' => MitgliedUpdateRequest::class,
- *               default  => null,
- *           };
- *       }
- *   }
+ *   requestFor()          which request class belongs to which action
+ *   query()               the starting point of every read
+ *   find()                how a single record is looked up
+ *   prepare()             last stop before writing, to add or drop values
+ *   persist()             how a record is written
+ *   transform()           how a record turns into the response payload
+ *   item(), collection()  how a response is assembled
+ *   paginationHeaders()   which headers describe a page
+ *
+ * Example:
+ *
+ *     #[RestResource(model: Member::class, except: ['destroy'])]
+ *     class MemberController extends RestController
+ *     {
+ *         public function requestFor(string $action): ?string
+ *         {
+ *             return match ($action) {
+ *                 'index'  => MemberIndexRequest::class,
+ *                 'store'  => MemberStoreRequest::class,
+ *                 'update' => MemberUpdateRequest::class,
+ *                 default  => null,
+ *             };
+ *         }
+ *     }
  */
 abstract class RestController
 {
     protected ?string $model = null;
 
-    /** Spalte, ueber die geladen wird. null = Primaerschluessel. */
+    /** Column a record is looked up by. Null means the primary key. */
     protected ?string $key = null;
 
-    // ------------------------------------------------------------- Aktionen
+    // ------------------------------------------------------------- Actions
     public function index(Request $request): JsonResponse
     {
         $form = $this->formRequest('index');
@@ -59,7 +71,8 @@ abstract class RestController
 
     public function show(Request $request, string|int $id): JsonResponse
     {
-        $this->formRequest('show');   // nur fuer authorize(), falls hinterlegt
+        // Resolving the request runs authorize(), if one is configured.
+        $this->formRequest('show');
 
         return $this->item($this->find($id));
     }
@@ -88,14 +101,14 @@ abstract class RestController
 
     public function destroy(Request $request, string|int $id): JsonResponse
     {
-        $this->formRequest('destroy');   // nur fuer authorize(), falls hinterlegt
+        $this->formRequest('destroy');
 
         $this->find($id)->delete();
 
         return new JsonResponse(null, 204);
     }
 
-    // ------------------------------------------------------------- Model
+    // --------------------------------------------------------------- Model
     public function modelClass(): string
     {
         if ($this->model) {
@@ -105,7 +118,9 @@ abstract class RestController
         $attribute = $this->attribute();
 
         if (! $attribute) {
-            throw new RuntimeException(static::class.': weder $model gesetzt noch #[RestResource] vorhanden.');
+            throw new RuntimeException(
+                static::class.': neither $model is set nor is #[RestResource] present.'
+            );
         }
 
         return $attribute->model;
@@ -143,7 +158,7 @@ abstract class RestController
         return $this->query()->where($this->keyName(), $id)->firstOrFail();
     }
 
-    /** Letzte Station vor dem Speichern - hier lassen sich Werte ergaenzen. */
+    /** Last stop before writing - a good place to add or drop values. */
     public function prepare(array $data, Model $model): array
     {
         return $data;
@@ -156,27 +171,26 @@ abstract class RestController
         return $model;
     }
 
-    // ------------------------------------------------------------- Requests
+    // ------------------------------------------------------------ Requests
     /**
-     * Welche Request-Klasse zu welcher Aktion gehoert. Die eine Stelle,
-     * an der das steht - hier laesst sich auch nach Rolle, Mandant oder
-     * API-Version unterscheiden.
+     * Which request class belongs to which action. The single place that
+     * knows this, so it can also branch by role, tenant or API version.
      *
-     *   public function requestFor(string $action): ?string
-     *   {
-     *       return match ($action) {
-     *           'index'  => MitgliedIndexRequest::class,
-     *           'show'   => MitgliedShowRequest::class,
-     *           'store'  => MitgliedStoreRequest::class,
-     *           'update' => MitgliedUpdateRequest::class,
-     *           'destroy' => MitgliedDestroyRequest::class,
-     *           default  => null,
-     *       };
-     *   }
+     *     public function requestFor(string $action): ?string
+     *     {
+     *         return match ($action) {
+     *             'index'   => MemberIndexRequest::class,
+     *             'show'    => MemberShowRequest::class,
+     *             'store'   => MemberStoreRequest::class,
+     *             'update'  => MemberUpdateRequest::class,
+     *             'destroy' => MemberDestroyRequest::class,
+     *             default   => null,
+     *         };
+     *     }
      *
-     * null bedeutet: keine Request-Klasse. Fuer index faellt das Package
-     * dann auf IndexRequest zurueck, show und destroy laufen ohne, store
-     * und update brauchen zwingend eine.
+     * Null means no request class. For index the package falls back to
+     * IndexRequest, show and destroy run without one, store and update
+     * require one.
      */
     public function requestFor(string $action): ?string
     {
@@ -184,8 +198,8 @@ abstract class RestController
     }
 
     /**
-     * Aufloesen ueber den Container - dabei validiert Laravel den Request
-     * selbst und wirft bei Fehlern die uebliche 422-Antwort.
+     * Resolving through the container is what triggers Laravel's own
+     * validation, including the usual 422 response on failure.
      */
     public function formRequest(string $action): ?RestRequest
     {
@@ -193,10 +207,10 @@ abstract class RestController
 
         if (! $class) {
             return match ($action) {
-                'index'          => app(IndexRequest::class),
+                'index'           => app(IndexRequest::class),
                 'show', 'destroy' => null,
-                default          => throw new RuntimeException(
-                    static::class.": requestFor('{$action}') liefert keine Request-Klasse."
+                default           => throw new RuntimeException(
+                    static::class.": requestFor('{$action}') returned no request class."
                 ),
             };
         }
@@ -204,8 +218,8 @@ abstract class RestController
         return app($class);
     }
 
-    // ------------------------------------------------------------- Ausgabe
-    /** Ein Model in das Antwort-Array uebersetzen. */
+    // -------------------------------------------------------------- Output
+    /** Turn one record into the response payload. */
     public function transform(Model $model): array
     {
         return $model->toArray();
@@ -226,7 +240,10 @@ abstract class RestController
         return new JsonResponse($items, 200, $this->paginationHeaders($paginator));
     }
 
-    /** Flache Antworten - die Paginierung steht deshalb in den Headern. */
+    /**
+     * Responses are flat, so the pagination goes into headers rather than
+     * wrapping the payload in an envelope.
+     */
     public function paginationHeaders(LengthAwarePaginator $paginator): array
     {
         $links = array_filter([

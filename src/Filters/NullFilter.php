@@ -30,6 +30,6 @@ class NullFilter extends Filter
 
     public function description(): string
     {
-        return 'ist leer (true) bzw. gefuellt (false)';
+        return 'is empty (true) or filled (false)';
     }
 }

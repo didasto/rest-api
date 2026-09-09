@@ -5,6 +5,7 @@ namespace Didasto\RestApi;
 use Didasto\RestApi\Console\PruneJobRunsCommand;
 use Didasto\RestApi\OpenApi\DocumentationController;
 use Didasto\RestApi\OpenApi\Generator;
+use Didasto\RestApi\OpenApi\ModelSchema;
 use Didasto\RestApi\OpenApi\RuleMapper;
 use Didasto\RestApi\Routing\ResourceRegistrar;
 use Illuminate\Routing\Router;
@@ -17,11 +18,13 @@ class RestApiServiceProvider extends ServiceProvider
         $this->mergeConfigFrom(__DIR__.'/../config/rest-api.php', 'rest-api');
 
         $this->app->bind(RuleMapper::class);
+        $this->app->bind(ModelSchema::class);
 
         $this->app->bind(Generator::class, fn ($app) => new Generator(
             router: $app['router'],
             mapper: $app->make(RuleMapper::class),
             config: $app['config']['rest-api'],
+            models: $app->make(ModelSchema::class),
         ));
 
         $this->app->bind(ResourceRegistrar::class, fn ($app) => new ResourceRegistrar(
@@ -42,8 +45,8 @@ class RestApiServiceProvider extends ServiceProvider
             $this->commands([PruneJobRunsCommand::class]);
         }
 
-        // Bei gecachten Routen nichts neu registrieren - sonst stehen die
-        // Routen doppelt in der Liste.
+        // With cached routes there is nothing to register - doing it anyway
+        // would list every route twice.
         if (! $this->app->routesAreCached()) {
             $this->app->make(ResourceRegistrar::class)->register();
             $this->registerDocumentationRoute($router);

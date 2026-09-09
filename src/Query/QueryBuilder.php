@@ -8,8 +8,8 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 
 /**
- * Wendet Filter, Sortierung, Eager Loading und Paginierung auf ein
- * Eloquent-Query an - gesteuert ueber die Query-Parameter des Requests.
+ * Applies filtering, sorting, eager loading and pagination to an Eloquent
+ * query, driven by the query string of the request.
  */
 class QueryBuilder
 {
@@ -43,12 +43,18 @@ class QueryBuilder
         }
 
         foreach ($input as $field => $operators) {
-            // Kurzform ?filter[name]=Meier bedeutet Gleichheit.
-            foreach (is_array($operators) ? $operators : ['eq' => $operators] as $operator => $value) {
+            // The short form ?filter[name]=Smith means equality.
+            $pairs = is_array($operators) ? $operators : ['eq' => $operators];
+
+            foreach ($pairs as $operator => $value) {
                 $filter = $this->filters->get((string) $field, (string) $operator);
 
                 if (! $filter) {
-                    throw InvalidQueryException::unknownFilter((string) $field, (string) $operator, $this->filters);
+                    throw InvalidQueryException::unknownFilter(
+                        (string) $field,
+                        (string) $operator,
+                        $this->filters,
+                    );
                 }
 
                 $query = $filter->apply($query, $filter->parse($value));
@@ -83,7 +89,9 @@ class QueryBuilder
     public function applyRelations(Builder $query): Builder
     {
         $with = $this->request->input($this->key('with'), '');
-        $with = is_array($with) ? $with : array_filter(array_map('trim', explode(',', (string) $with)));
+        $with = is_array($with)
+            ? $with
+            : array_filter(array_map('trim', explode(',', (string) $with)));
 
         if ($with === []) {
             return $query;

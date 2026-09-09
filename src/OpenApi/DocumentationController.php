@@ -5,7 +5,7 @@ namespace Didasto\RestApi\OpenApi;
 use Illuminate\Http\JsonResponse;
 
 /**
- * Liefert das OpenAPI-Dokument unter der in der Config hinterlegten Route.
+ * Serves the OpenAPI document on the route configured in rest-api.php.
  */
 class DocumentationController
 {

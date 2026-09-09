@@ -6,22 +6,22 @@ use Closure;
 use RuntimeException;
 
 /**
- * In jeden Job der Kette einbinden. Der Controller haengt die Lauf-Nummer
- * beim Anstossen an - im Job selbst ist nichts dafuer zu tun.
+ * Add this to every job of a run. The controller attaches the run id when
+ * the batch is dispatched, so there is nothing to wire up in the job.
  *
- *   class FindeAsinJob implements ShouldQueue
- *   {
- *       use Batchable, Queueable, InteractsWithJobRun;
+ *     class FindAsinJob implements ShouldQueue
+ *     {
+ *         use Batchable, Queueable, InteractsWithJobRun;
  *
- *       public function handle(): void
- *       {
- *           $suche = $this->data()->suchbegriff;
+ *         public function handle(): void
+ *         {
+ *             $term = $this->data()->term;
  *
- *           $this->updateResult(function (ProduktSucheResult $result) use ($asin) {
- *               $result->asin = $asin;
- *           });
- *       }
- *   }
+ *             $this->updateResult(function (ProductSearchResult $result) use ($asin) {
+ *                 $result->asin = $asin;
+ *             });
+ *         }
+ *     }
  */
 trait InteractsWithJobRun
 {
@@ -37,28 +37,28 @@ trait InteractsWithJobRun
     public function run(): JobRun
     {
         if (! $this->jobRunId) {
-            throw new RuntimeException(static::class.': dieser Job gehoert zu keinem Lauf.');
+            throw new RuntimeException(static::class.': this job does not belong to a run.');
         }
 
         return JobRun::query()->findOrFail($this->jobRunId);
     }
 
-    /** Die Eingangsdaten - fuer alle Jobs der Kette dieselben. */
+    /** The input of the run - the same for every job of the chain. */
     public function data(): ?JobData
     {
         return $this->run()->data();
     }
 
-    /** Der Stand des Ergebnisses, wie ihn die Vorgaenger hinterlassen haben. */
+    /** The result as the preceding jobs left it. */
     public function result(): ?JobResult
     {
         return $this->run()->result();
     }
 
     /**
-     * Das Ergebnis fortschreiben. Laeuft unter einer Zeilensperre, damit
-     * gleichzeitig laufende Jobs sich nicht gegenseitig ueberschreiben -
-     * jeder sieht beim Schreiben den aktuellen Stand.
+     * Advance the result. Runs under a row lock so jobs running at the
+     * same time cannot overwrite each other - each of them sees the
+     * current state at the moment it writes.
      */
     public function updateResult(Closure $mutator): JobResult
     {

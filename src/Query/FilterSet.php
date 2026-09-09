@@ -6,17 +6,18 @@ use Didasto\RestApi\Filters\Filter;
 use Didasto\RestApi\Filters\Groups\FilterGroup;
 
 /**
- * Uebersetzt die Deklaration aus filters() in einsatzbereite Filter.
+ * Translates the declaration from filters() into ready to use filters.
  *
- * Erlaubte Schreibweisen je Feld:
- *   'id'    => IdFilter::class                       // Gruppe
- *   'name'  => [EqualsFilter::class, LikeFilter::class]
- *   'saldo' => new NumericFilter(column: 'saldo_cent')
- *   'ort'   => [new StringFilter(column: 'adresse_ort')]
+ * Accepted notations per field:
+ *
+ *     'id'      => IdFilter::class                          // a group
+ *     'name'    => [EqualsFilter::class, LikeFilter::class]  // single filters
+ *     'balance' => new NumericFilter(column: 'balance_cents')
+ *     'city'    => [new StringFilter(column: 'address_city')]
  */
 class FilterSet
 {
-    /** @var array<string, array<string, Filter>> Feld => Operator => Filter */
+    /** @var array<string, array<string, Filter>> field => operator => filter */
     public array $filters = [];
 
     /** @var array<string, array{type: string, format: ?string}> */

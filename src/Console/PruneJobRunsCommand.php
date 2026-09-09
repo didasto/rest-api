@@ -8,16 +8,16 @@ use Illuminate\Support\Carbon;
 
 class PruneJobRunsCommand extends Command
 {
-    protected $signature = 'rest-api:prune-jobs {--days= : Laeufe aelter als X Tage entfernen}';
+    protected $signature = 'rest-api:prune-jobs {--days= : Remove runs finished more than this many days ago}';
 
-    protected $description = 'Abgeschlossene Job-Laeufe aufraeumen.';
+    protected $description = 'Remove finished job runs.';
 
     public function handle(): int
     {
         $days = (int) ($this->option('days') ?: config('rest-api.jobs.prune', 30));
 
         if ($days <= 0) {
-            $this->info('Aufraeumen ist abgeschaltet (jobs.prune = 0).');
+            $this->info('Pruning is disabled (jobs.prune = 0).');
 
             return self::SUCCESS;
         }
@@ -27,7 +27,7 @@ class PruneJobRunsCommand extends Command
             ->where('finished_at', '<', Carbon::now()->subDays($days))
             ->delete();
 
-        $this->info("{$removed} Lauf/Laeufe aelter als {$days} Tage entfernt.");
+        $this->info("Removed {$removed} run(s) older than {$days} days.");
 
         return self::SUCCESS;
     }

@@ -6,14 +6,15 @@ use Illuminate\Validation\Rules\Enum;
 use Illuminate\Validation\Rules\In;
 
 /**
- * Uebersetzt Laravel-Validierungsregeln in JSON-Schema.
+ * Translates Laravel validation rules into JSON schema.
  *
- * Der Kern der Dokumentation: die Regeln stehen ohnehin schon in den
- * Request-Klassen, also werden sie auch die Quelle fuers Schema.
+ * This is the heart of the documentation: the rules already live in the
+ * request classes, so they are also the source of the schema and the two
+ * cannot drift apart.
  */
 class RuleMapper
 {
-    /** Regel => JSON-Schema-Typ */
+    /** rule => JSON schema type */
     public array $types = [
         'integer' => 'integer',
         'int'     => 'integer',
@@ -27,24 +28,24 @@ class RuleMapper
         'image'   => 'string',
     ];
 
-    /** Regel => JSON-Schema-Format */
+    /** rule => JSON schema format */
     public array $formats = [
-        'email'      => 'email',
-        'url'        => 'uri',
-        'uuid'       => 'uuid',
-        'ulid'       => 'string',
-        'ip'         => 'ipv4',
-        'ipv4'       => 'ipv4',
-        'ipv6'       => 'ipv6',
-        'date'       => 'date',
-        'date_format'=> 'date-time',
-        'file'       => 'binary',
-        'image'      => 'binary',
+        'email'       => 'email',
+        'url'         => 'uri',
+        'uuid'        => 'uuid',
+        'ulid'        => 'string',
+        'ip'          => 'ipv4',
+        'ipv4'        => 'ipv4',
+        'ipv6'        => 'ipv6',
+        'date'        => 'date',
+        'date_format' => 'date-time',
+        'file'        => 'binary',
+        'image'       => 'binary',
     ];
 
     /**
      * @param  array<string, mixed>  $rules
-     * @return array{type: string, properties: array, required: array}
+     * @return array{type: string, properties: array, required?: array}
      */
     public function toSchema(array $rules): array
     {
@@ -71,8 +72,7 @@ class RuleMapper
     /** @return array<int, string> */
     public function tokens(mixed $rule): array
     {
-        $list = is_string($rule) ? explode('|', $rule) : (array) $rule;
-
+        $list   = is_string($rule) ? explode('|', $rule) : (array) $rule;
         $tokens = [];
 
         foreach ($list as $item) {
@@ -125,14 +125,15 @@ class RuleMapper
     public function constraint(array $property, string $name, ?string $argument): array
     {
         $numeric = in_array($property['type'], ['integer', 'number'], true);
+        $isArray = $property['type'] === 'array';
 
         switch ($name) {
             case 'min':
-                $property[$numeric ? 'minimum' : ($property['type'] === 'array' ? 'minItems' : 'minLength')] = $this->number($argument);
+                $property[$numeric ? 'minimum' : ($isArray ? 'minItems' : 'minLength')] = $this->number($argument);
                 break;
 
             case 'max':
-                $property[$numeric ? 'maximum' : ($property['type'] === 'array' ? 'maxItems' : 'maxLength')] = $this->number($argument);
+                $property[$numeric ? 'maximum' : ($isArray ? 'maxItems' : 'maxLength')] = $this->number($argument);
                 break;
 
             case 'size':
@@ -162,7 +163,8 @@ class RuleMapper
                 break;
 
             case 'exists':
-                $property['description'] = trim(($property['description'] ?? '').' Muss vorhanden sein in: '.explode(',', (string) $argument)[0]);
+                $table = explode(',', (string) $argument)[0];
+                $property['description'] = trim(($property['description'] ?? '').' Must exist in: '.$table);
                 break;
         }
 
@@ -174,7 +176,7 @@ class RuleMapper
         return str_contains((string) $value, '.') ? (float) $value : (int) $value;
     }
 
-    /** Verschachtelte Felder (adresse.strasse, tags.*) einsortieren. */
+    /** Sort nested fields (address.street, tags.*) into place. */
     public function put(array &$schema, array $path, array $property): void
     {
         $segment = array_shift($path);
@@ -192,7 +194,6 @@ class RuleMapper
             array_shift($path);
 
             $schema['properties'][$segment]['type'] = 'array';
-            $items = ['type' => 'object', 'properties' => []];
 
             if ($path === []) {
                 $schema['properties'][$segment]['items'] = $property;
@@ -200,7 +201,7 @@ class RuleMapper
                 return;
             }
 
-            $existing = $schema['properties'][$segment]['items'] ?? $items;
+            $existing = $schema['properties'][$segment]['items'] ?? ['type' => 'object', 'properties' => []];
             $this->put($existing, $path, $property);
             $schema['properties'][$segment]['items'] = $existing;
 

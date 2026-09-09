@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create($this->table(), function (Blueprint $table) {
             $table->id();
-            $table->string('key')->index();                 // welcher Job-Typ
+            $table->string('key')->index();                  // which job type
             $table->string('batch_id')->nullable()->index();
             $table->string('status')->default('pending')->index();
             $table->unsignedInteger('total')->default(0);
@@ -19,9 +19,9 @@ return new class extends Migration
             $table->text('message')->nullable();
             $table->string('result_url', 2048)->nullable();
             $table->string('data_class')->nullable();
-            $table->json('data')->nullable();          // JobData, unveraenderlich
+            $table->json('data')->nullable();                // JobData, never changed
             $table->string('result_class')->nullable();
-            $table->json('result')->nullable();        // JobResult, waechst mit der Kette
+            $table->json('result')->nullable();              // JobResult, grows with the chain
             $table->string('created_by')->nullable()->index();
             $table->timestamp('started_at', 6)->nullable();
             $table->timestamp('finished_at', 6)->nullable();

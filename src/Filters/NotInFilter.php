@@ -18,6 +18,6 @@ class NotInFilter extends InFilter
 
     public function description(): string
     {
-        return 'nicht in Liste';
+        return 'is none of';
     }
 }

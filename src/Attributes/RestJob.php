@@ -5,19 +5,19 @@ namespace Didasto\RestApi\Attributes;
 use Attribute;
 
 /**
- * Macht aus einem Controller eine Job-API: POST stoesst an, GET liefert
- * den Stand.
+ * Turns a controller into a job API: POST starts a run, GET reports its
+ * progress, DELETE cancels it.
  *
- *   #[RestJob(key: 'mitglieder-export', uri: 'exporte/mitglieder')]
- *   class MitgliederExportController extends JobController
- *   {
- *       protected ?string $storeRequest = ExportRequest::class;
+ *     #[RestJob(key: 'member-export', uri: 'exports/members')]
+ *     class MemberExportController extends JobController
+ *     {
+ *         protected ?string $storeRequest = ExportRequest::class;
  *
- *       public function jobs(array $data): array
- *       {
- *           return array_map(fn ($jahr) => new ExportiereJahr($jahr), $data['jahre']);
- *       }
- *   }
+ *         public function jobs(?JobData $data): array
+ *         {
+ *             return array_map(fn ($year) => new ExportYear($year), $data->years);
+ *         }
+ *     }
  */
 #[Attribute(Attribute::TARGET_CLASS)]
 class RestJob

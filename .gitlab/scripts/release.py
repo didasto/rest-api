@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
 """
-Liest den [Unreleased]-Abschnitt aus CHANGELOG.md, leitet daraus den
-SemVer-Bump ab, berechnet die neue Version aus dem letzten Git-Tag und
-schreibt den CHANGELOG fort.
+Reads the [Unreleased] section of CHANGELOG.md, derives the SemVer bump
+from it, computes the next version from the latest git tag and writes the
+CHANGELOG forward.
 
-Regeln (Keep a Changelog):
-  major  -> "### Removed", "BREAKING" oder Marker [major]
-  minor  -> "### Added", "### Changed" oder Marker [minor]
-  patch  -> alles andere (Fixed, Security, Deprecated) oder Marker [patch]
+Rules (Keep a Changelog):
+  major  -> "### Removed", "BREAKING" or the marker [major]
+  minor  -> "### Added", "### Changed" or the marker [minor]
+  patch  -> anything else (Fixed, Security, Deprecated) or the marker [patch]
 
-Ein expliziter Marker im Unreleased-Abschnitt gewinnt immer, z.B.:
+An explicit marker in the Unreleased heading always wins, for example:
   ## [Unreleased] [minor]
 
-Aufruf:
-  release.py            -> gibt NEW_VERSION/BUMP als env-Zeilen auf stdout aus
-  release.py --check    -> prueft nur, ob ein Unreleased-Eintrag existiert
-Exitcode 78 = nichts zu releasen.
+Usage:
+  release.py            -> prints NEW_VERSION and BUMP as env lines on stdout
+  release.py --check    -> only checks that an Unreleased entry exists
+Exit code 78 means there is nothing to release.
 """
 import datetime
 import re
@@ -79,12 +79,12 @@ def main():
     try:
         text = open(CHANGELOG, encoding="utf-8").read()
     except FileNotFoundError:
-        print(f"{CHANGELOG} fehlt.", file=sys.stderr)
+        print(f"{CHANGELOG} is missing.", file=sys.stderr)
         sys.exit(1)
 
     heading, body, pos = read_unreleased(text)
     if heading is None:
-        print("Kein [Unreleased]-Abschnitt in CHANGELOG.md gefunden.",
+        print("No [Unreleased] section found in CHANGELOG.md.",
               file=sys.stderr)
         sys.exit(1)
 
@@ -92,8 +92,7 @@ def main():
                if ln.strip().startswith(("-", "*"))]
     if not entries:
         if check_only:
-            print("CHANGELOG: [Unreleased] ist leer - bitte Aenderung "
-                  "eintragen.", file=sys.stderr)
+            print("CHANGELOG: [Unreleased] is empty - add what changed.", file=sys.stderr)
             sys.exit(1)
         sys.exit(78)
 
@@ -102,8 +101,7 @@ def main():
     tag = "v%d.%d.%d" % new
 
     if check_only:
-        print(f"OK - {len(entries)} Eintrag(e), naechste Version waere {tag} "
-              f"({kind}).")
+        print(f"OK - {len(entries)} entry/entries, next version would be {tag} ({kind}).")
         return
 
     today = datetime.date.today().isoformat()

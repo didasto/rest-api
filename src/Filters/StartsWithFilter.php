@@ -16,6 +16,6 @@ class StartsWithFilter extends LikeFilter
 
     public function description(): string
     {
-        return 'beginnt mit';
+        return 'starts with';
     }
 }

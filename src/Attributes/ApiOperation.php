@@ -5,12 +5,12 @@ namespace Didasto\RestApi\Attributes;
 use Attribute;
 
 /**
- * Beschreibt einen handgeschriebenen Endpunkt fuers OpenAPI-Dokument.
- * Rein dokumentarisch - das Routing machen die Spatie-Attribute.
+ * Describes a hand written endpoint for the OpenAPI document. Purely
+ * documentation - the routing is done by the Spatie route attributes.
  *
- *   #[Get('kasse/abschluss')]
- *   #[ApiOperation(summary: 'Kassenabschluss', tag: 'Kasse', request: AbschlussRequest::class)]
- *   public function abschluss(AbschlussRequest $request) {}
+ *     #[Post('close')]
+ *     #[ApiOperation(summary: 'Close the cash book', tag: 'Cash book')]
+ *     public function close(CloseRequest $request) {}
  */
 #[Attribute(Attribute::TARGET_METHOD)]
 class ApiOperation
