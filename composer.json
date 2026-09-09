@@ -32,7 +32,7 @@
     },
     "scripts": {
         "check-vars": [
-            "@php .gitlab/scripts/undefined-variables.php src"
+            "@php scripts/undefined-variables.php src"
         ],
         "test": [
             "@php vendor/bin/phpunit"
