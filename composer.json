@@ -1,8 +1,28 @@
 {
     "name": "didasto/rest-api",
     "description": "Model backed and hand written REST APIs for Laravel, with an OpenAPI document generated from your request classes and declarative filters.",
+    "keywords": [
+        "laravel",
+        "rest",
+        "api",
+        "openapi",
+        "swagger",
+        "filters",
+        "jobs"
+    ],
     "type": "library",
     "license": "MIT",
+    "homepage": "https://github.com/didasto/rest-api",
+    "authors": [
+        {
+            "name": "Florian Klöpfer",
+            "email": "didasto3d@gmail.com"
+        }
+    ],
+    "support": {
+        "issues": "https://github.com/didasto/rest-api/issues",
+        "source": "https://github.com/didasto/rest-api"
+    },
     "require": {
         "php": "^8.3",
         "illuminate/support": "^11.0|^12.0|^13.0",
@@ -49,14 +69,5 @@
     },
     "config": {
         "sort-packages": true
-    },
-    "keywords": [
-        "laravel",
-        "rest",
-        "api",
-        "openapi",
-        "swagger",
-        "filters",
-        "jobs"
-    ]
+    }
 }

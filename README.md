@@ -1,5 +1,9 @@
 # didasto/rest-api
 
+[![Tests](https://github.com/didasto/rest-api/actions/workflows/tests.yml/badge.svg)](https://github.com/didasto/rest-api/actions/workflows/tests.yml)
+[![Latest release](https://img.shields.io/github/v/release/didasto/rest-api?sort=semver)](https://github.com/didasto/rest-api/releases)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Model backed and hand written REST APIs for Laravel, with an OpenAPI
 document generated from your request classes and filters you declare
 instead of implement.
