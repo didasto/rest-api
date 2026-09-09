@@ -18,6 +18,6 @@ class LessThanFilter extends Filter
 
     public function description(): string
     {
-        return 'kleiner als';
+        return 'less than';
     }
 }

@@ -1,6 +1,6 @@
 {
     "name": "didasto/rest-api",
-    "description": "Model- und Custom-REST-APIs fuer Laravel mit automatischem OpenAPI-Dokument und deklarativen Filtern.",
+    "description": "Model backed and hand written REST APIs for Laravel, with an OpenAPI document generated from your request classes and declarative filters.",
     "type": "library",
     "license": "MIT",
     "require": {
@@ -24,5 +24,39 @@
             ]
         }
     },
-    "minimum-stability": "stable"
+    "minimum-stability": "stable",
+    "require-dev": {
+        "nikic/php-parser": "^5.0",
+        "orchestra/testbench": "^9.0|^10.0|^11.0",
+        "phpunit/phpunit": "^11.0|^12.0"
+    },
+    "scripts": {
+        "check-vars": [
+            "@php .gitlab/scripts/undefined-variables.php src"
+        ],
+        "test": [
+            "@php vendor/bin/phpunit"
+        ],
+        "check": [
+            "@check-vars",
+            "@test"
+        ]
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Didasto\\RestApi\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "keywords": [
+        "laravel",
+        "rest",
+        "api",
+        "openapi",
+        "swagger",
+        "filters",
+        "jobs"
+    ]
 }

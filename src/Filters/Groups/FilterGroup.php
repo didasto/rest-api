@@ -5,14 +5,16 @@ namespace Didasto\RestApi\Filters\Groups;
 use Didasto\RestApi\Filters\Filter;
 
 /**
- * Ein Buendel von Operatoren fuer ein Feld.
+ * A bundle of operators for one field.
  *
- *   'id' => IdFilter::class
+ *     'id' => IdFilter::class
  *
- * erlaubt ?filter[id][eq], [ne], [lt], [lte], [gt], [gte], [in], [notIn], [null].
+ * allows ?filter[id][eq], [ne], [lt], [lte], [gt], [gte], [in], [notIn]
+ * and [null].
  *
- * Eine Gruppe ist selbst kein Filter - sie liefert nur die Einzelfilter,
- * damit Query und OpenAPI mit derselben Liste arbeiten.
+ * A group is not a filter itself. It only hands out the individual
+ * filters, so the query and the OpenAPI document always work from the
+ * very same list and cannot drift apart.
  */
 abstract class FilterGroup
 {
@@ -21,10 +23,10 @@ abstract class FilterGroup
         public ?string $column = null,
     ) {}
 
-    /** @return array<int, class-string<Filter>> */
+    /** @return array<int, class-string<Filter>|Filter> */
     abstract public function filters(): array;
 
-    /** JSON-Schema-Typ der Werte - fuers OpenAPI-Dokument. */
+    /** JSON schema type of the values, used by the OpenAPI generator. */
     public function type(): string
     {
         return 'string';
@@ -44,9 +46,9 @@ abstract class FilterGroup
     }
 
     /**
-     * Die Gruppe in einzelne, einsatzbereite Filter aufloesen.
+     * Expand the group into ready to use filters.
      *
-     * @return array<string, Filter> Operator => Filter
+     * @return array<string, Filter> operator => filter
      */
     public function resolve(): array
     {
@@ -62,7 +64,7 @@ abstract class FilterGroup
         return $resolved;
     }
 
-    /** Haengt Typ und Format der Gruppe an das Schema der Einzelfilter. */
+    /** Last chance to adjust a filter before it is used. */
     public function decorate(Filter $filter): Filter
     {
         return $filter;

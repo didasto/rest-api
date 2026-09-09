@@ -3,27 +3,22 @@
 namespace Didasto\RestApi\Jobs;
 
 /**
- * Das Ergebnis eines Laufs - alle Felder nullable, weil zu Beginn nichts
- * davon feststeht und einzelne Jobs fehlschlagen duerfen.
+ * The result of a run. Every field is nullable, because nothing is known
+ * when the run starts and individual jobs are allowed to fail.
  *
- * Jeder Job traegt seinen Teil ein; der naechste liest, was da ist.
+ * Each job writes its own part; the next one reads whatever is there.
  *
- *   class ProduktSucheResult extends JobResult
- *   {
- *       public ?string $asin = null;
- *       public ?string $gtin = null;
- *       public ?string $epid = null;
- *       public ?int $produktId = null;
- *   }
- *
- * Wer nachsehen will, was die Vorgaenger geliefert haben, fragt gefuellt():
- *
- *   if ($result->gefuellt('asin', 'gtin')) { ... }
+ *     class ProductSearchResult extends JobResult
+ *     {
+ *         public ?string $asin = null;
+ *         public ?string $gtin = null;
+ *         public ?int $productId = null;
+ *     }
  */
 abstract class JobResult extends JobPayload
 {
-    /** Sind alle genannten Felder gesetzt? Ohne Angabe: ist ueberhaupt etwas gesetzt? */
-    public function gefuellt(string ...$fields): bool
+    /** True when all named fields are set. Without arguments: when anything is set. */
+    public function has(string ...$fields): bool
     {
         if ($fields === []) {
             return array_filter($this->toArray(), fn ($value) => $value !== null) !== [];
@@ -38,8 +33,8 @@ abstract class JobResult extends JobPayload
         return true;
     }
 
-    /** Wie gefuellt(), aber es reicht, wenn eines der Felder da ist. */
-    public function eines(string ...$fields): bool
+    /** True when at least one of the named fields is set. */
+    public function hasAny(string ...$fields): bool
     {
         foreach ($fields as $field) {
             if (($this->{$field} ?? null) !== null) {

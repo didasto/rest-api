@@ -5,12 +5,12 @@ namespace Didasto\RestApi\Attributes;
 use Attribute;
 
 /**
- * Macht aus einem Controller eine Model-Ressource.
+ * Turns a controller into a model resource.
  *
- *   #[RestResource(model: Mitglied::class, except: ['destroy'])]
- *   class MitgliedController extends RestController {}
+ *     #[RestResource(model: Member::class, except: ['destroy'])]
+ *     class MemberController extends RestController {}
  *
- * Aktionen: index, show, store, update (PUT und PATCH), destroy.
+ * Actions: index, show, store, update (PUT and PATCH), destroy.
  */
 #[Attribute(Attribute::TARGET_CLASS)]
 class RestResource
@@ -27,7 +27,12 @@ class RestResource
         public ?string $tag = null,
     ) {}
 
-    /** @return array<int, string> */
+    /**
+     * Resolve which actions this resource exposes.
+     *
+     * @param  array<int, string>  $defaults
+     * @return array<int, string>
+     */
     public function actions(array $defaults): array
     {
         $only   = (array) $this->only;

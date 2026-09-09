@@ -13,7 +13,9 @@ class BetweenFilter extends Filter
 
     public function parse(mixed $value): mixed
     {
-        $parts = is_array($value) ? array_values($value) : array_map('trim', explode(',', (string) $value));
+        $parts = is_array($value)
+            ? array_values($value)
+            : array_map('trim', explode(',', (string) $value));
 
         return array_slice($parts, 0, 2);
     }
@@ -31,11 +33,11 @@ class BetweenFilter extends Filter
 
     public function schema(): array
     {
-        return ['type' => 'string', 'description' => 'Zwei Werte, kommagetrennt'];
+        return ['type' => 'string', 'description' => 'Two values, comma separated'];
     }
 
     public function description(): string
     {
-        return 'zwischen zwei Werten';
+        return 'between two values';
     }
 }

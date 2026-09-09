@@ -5,10 +5,10 @@ namespace Didasto\RestApi\Filters;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
- * Ein einzelner Filteroperator auf einer Spalte.
+ * A single filter operator on one column.
  *
- * Jede Ableitung beantwortet drei Fragen: wie heisst der Operator in der
- * URL, wie wird der Rohwert gelesen, und was macht er mit dem Query.
+ * Every subclass answers three questions: what the operator is called in
+ * the URL, how the raw value is read, and what it does to the query.
  */
 abstract class Filter
 {
@@ -17,7 +17,7 @@ abstract class Filter
         public ?string $column = null,
     ) {}
 
-    /** Operatorname in der URL: ?filter[id][gte]=5 */
+    /** Operator name in the URL: ?filter[id][gte]=5 */
     abstract public function operator(): string;
 
     abstract public function apply(Builder $query, mixed $value): Builder;
@@ -35,13 +35,13 @@ abstract class Filter
         return $this;
     }
 
-    /** Rohwert aus der Query in den Wert fuer das Query umwandeln. */
+    /** Turn the raw query value into what the query builder expects. */
     public function parse(mixed $value): mixed
     {
         return $value;
     }
 
-    /** JSON-Schema des Query-Parameters fuers OpenAPI-Dokument. */
+    /** JSON schema of the query parameter, used by the OpenAPI generator. */
     public function schema(): array
     {
         return ['type' => 'string'];

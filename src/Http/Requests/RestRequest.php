@@ -6,16 +6,16 @@ use Didasto\RestApi\Query\FilterSet;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
- * Basis fuer alle Request-Klassen des Packages.
+ * Base class for every request of this package.
  *
- * rules()      speist Validierung UND OpenAPI-Schema.
- * filters()    deklariert die erlaubten Query-Filter.
- * sortable()   und relations() begrenzen ?sort und ?with.
+ * rules()     feeds both the validation and the OpenAPI schema
+ * filters()   declares the query filters the endpoint accepts
+ * sortable()  and relations() limit ?sort and ?with
  *
- * PUT und PATCH teilen sich dieselben Regeln. Wer ein Teil-Update
- * erlauben will, schreibt sometimes selbst in die Regel - frueher hat das
- * Package required automatisch umgeschrieben, was bei required_with,
- * prohibited_unless oder Rule-Objekten stillschweigend das Falsche tat.
+ * PUT and PATCH share the same rules. To allow partial updates, write
+ * 'sometimes' into the rule yourself - the package used to rewrite
+ * 'required' automatically, which quietly did the wrong thing for
+ * required_with, prohibited_unless and rule objects.
  */
 class RestRequest extends FormRequest
 {
@@ -29,19 +29,19 @@ class RestRequest extends FormRequest
         return [];
     }
 
-    /** @return array<string, mixed> Feld => Filter, Filtergruppe oder Liste davon */
+    /** @return array<string, mixed> field => filter, filter group, or a list of either */
     public function filters(): array
     {
         return [];
     }
 
-    /** @return array<int, string> Leer = jede Spalte erlaubt */
+    /** @return array<int, string> empty means every column may be sorted by */
     public function sortable(): array
     {
         return [];
     }
 
-    /** @return array<int, string> Leer = ?with abgeschaltet */
+    /** @return array<int, string> empty disables ?with entirely */
     public function relations(): array
     {
         return [];
@@ -51,5 +51,4 @@ class RestRequest extends FormRequest
     {
         return FilterSet::fromDeclaration($this->filters());
     }
-
 }

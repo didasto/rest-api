@@ -8,14 +8,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
+use RuntimeException;
 
 /**
- * Ein angestossener Lauf. Die fortlaufende id ist das, was der Client
- * beim POST bekommt und beim GET wieder mitschickt.
- *
- * Die Fortschrittszahlen holt sync() live aus Laravels Batch - die Jobs
- * selbst muessen nichts zurueckmelden. Erst wenn der Batch fertig ist,
- * werden die Zahlen festgeschrieben.
+ * One started run. Its auto incrementing id is what the caller receives
+ * from the POST and sends back on every GET.
  *
  * @property int $id
  * @property string $key
@@ -25,7 +22,7 @@ class JobRun extends Model
 {
     protected $guarded = [];
 
-    /** Die Migration legt timestamp(6) an - ohne das hier waeren die Mikrosekunden weg. */
+    /** The migration creates timestamp(6) columns; without this the microseconds are lost. */
     protected $dateFormat = 'Y-m-d H:i:s.u';
 
     protected $casts = [
@@ -44,8 +41,8 @@ class JobRun extends Model
         return $this->table ?? config('rest-api.jobs.table', 'api_job_runs');
     }
 
-    // ------------------------------------------------------- Daten und Ergebnis
-    /** Die Eingangsdaten des Laufs, als typisiertes Objekt. */
+    // -------------------------------------------------------- Data and result
+    /** The input of the run as a typed object. */
     public function data(): ?JobData
     {
         return $this->data_class
@@ -53,7 +50,7 @@ class JobRun extends Model
             : null;
     }
 
-    /** Der aktuelle Stand des Ergebnisses, als typisiertes Objekt. */
+    /** The current state of the result as a typed object. */
     public function result(): ?JobResult
     {
         return $this->result_class
@@ -62,11 +59,11 @@ class JobRun extends Model
     }
 
     /**
-     * Das Ergebnis unter einer Zeilensperre fortschreiben.
+     * Advance the result while holding a row lock.
      *
-     * Ohne die Sperre wuerden zwei gleichzeitig laufende Jobs jeweils den
-     * Stand von vor ihrem Start zurueckschreiben - der langsamere gewinnt,
-     * und die Felder des anderen waeren weg.
+     * Without the lock two jobs running at the same time would each write
+     * back the state they read before they started: the slower one wins
+     * and the other one's fields are gone.
      */
     public function updateResult(Closure $mutator): JobResult
     {
@@ -76,7 +73,7 @@ class JobRun extends Model
             $result = $fresh->result();
 
             if (! $result) {
-                throw new \RuntimeException(static::class.': fuer diesen Lauf ist keine JobResult-Klasse hinterlegt.');
+                throw new RuntimeException(static::class.': this run has no result class.');
             }
 
             $mutator($result);
@@ -89,31 +86,31 @@ class JobRun extends Model
         });
     }
 
-    // ------------------------------------------------------------------ Batch
+    // ----------------------------------------------------------------- Batch
     public function batch(): ?Batch
     {
         return $this->batch_id ? Bus::findBatch($this->batch_id) : null;
     }
 
     /**
-     * Stand aus dem Batch uebernehmen. Gibt sich selbst zurueck.
+     * Copy the current state out of the batch. Returns itself.
      *
-     * Zwei Eigenheiten von Laravels Batch, die hier abgefangen werden:
+     * Two quirks of Laravel's batches are handled here:
      *
-     * 1. Ein endgueltig fehlgeschlagener Job verringert pending_jobs NICHT.
-     *    Deshalb setzt Laravel finished_at nie, sobald etwas fehlgeschlagen
-     *    ist - $batch->finished() bleibt fuer immer false. Fertig ist der
-     *    Lauf, wenn pending minus failed aufgeht (dieselbe Rechnung, mit der
-     *    Laravel intern seinen finally-Callback ausloest).
+     * 1. A permanently failed job does not decrement pending_jobs, so
+     *    Laravel never sets finished_at once anything has failed and
+     *    $batch->finished() stays false forever. A run is done when
+     *    pending minus failed works out - the same arithmetic Laravel
+     *    itself uses to fire the finally callback.
      *
-     * 2. Der Zaehler failed_jobs wird bei jedem Fehlschlag hochgezaehlt,
-     *    failed_job_ids dagegen eindeutig gefuehrt. Nach queue:retry laufen
-     *    die beiden auseinander. Gezaehlt wird deshalb ueber die IDs - ein
-     *    Job, der dreimal scheitert, bleibt ein fehlgeschlagener Job.
+     * 2. The failed_jobs counter is incremented on every failure while
+     *    failed_job_ids is kept unique. After queue:retry the two drift
+     *    apart, so the ids are counted instead: a job that fails three
+     *    times is still one failed job.
      *
-     * Wiederholungen innerhalb von tries zaehlen ohnehin nicht mit: der
-     * Worker legt den Job zurueck in die Queue und meldet erst nach dem
-     * letzten Versuch einen Fehlschlag.
+     * Retries within $tries never show up at all - the worker releases the
+     * job back onto the queue and only reports a failure after the last
+     * attempt.
      */
     public function sync(): static
     {
@@ -137,12 +134,11 @@ class JobRun extends Model
         }
 
         if (! $this->status->isOpen() && ! $this->finished_at) {
-            // finishedAt fehlt, sobald etwas fehlgeschlagen ist - siehe oben.
             $this->finished_at = $batch->finishedAt ?? Carbon::now();
         }
 
         if ($this->status === JobStatus::Failed && ! $this->message) {
-            $this->message = "{$this->failed} von {$this->total} Aufgaben fehlgeschlagen.";
+            $this->message = "{$this->failed} of {$this->total} jobs failed.";
         }
 
         if ($this->isDirty()) {
@@ -152,7 +148,7 @@ class JobRun extends Model
         return $this;
     }
 
-    /** Alle Aufgaben durch - erfolgreiche wie endgueltig fehlgeschlagene. */
+    /** Every job has run, successfully or permanently failed. */
     public function isBatchDone(Batch $batch): bool
     {
         return $batch->totalJobs > 0 && ($batch->pendingJobs - $batch->failedJobs) <= 0;
@@ -163,11 +159,12 @@ class JobRun extends Model
         $done = $this->isBatchDone($batch);
 
         return match (true) {
-            $batch->cancelled()                        => JobStatus::Cancelled,
-            $done && count($batch->failedJobIds) > 0   => JobStatus::Failed,
-            $done                                      => JobStatus::Finished,
-            $batch->processedJobs() > 0 || $batch->failedJobs > 0 => JobStatus::Processing,
-            default                                    => JobStatus::Pending,
+            $batch->cancelled()                      => JobStatus::Cancelled,
+            $done && count($batch->failedJobIds) > 0 => JobStatus::Failed,
+            $done                                    => JobStatus::Finished,
+            $batch->processedJobs() > 0
+                || $batch->failedJobs > 0            => JobStatus::Processing,
+            default                                  => JobStatus::Pending,
         };
     }
 
@@ -177,10 +174,11 @@ class JobRun extends Model
             return $this->status->isOpen() ? 0 : 100;
         }
 
-        // Erledigt ist erledigt - auch ein fehlgeschlagener Job ist durch.
+        // Done is done - a failed job has run too.
         return min(100, (int) floor((($this->processed + $this->failed) / $this->total) * 100));
     }
 
+    // ------------------------------------------------------------- Lifecycle
     public function markFailed(string $message): static
     {
         $this->forceFill([
@@ -210,7 +208,8 @@ class JobRun extends Model
         return $this->sync();
     }
 
-    /** Genau die Felder aus der Doku - nichts Variables. */
+    // ---------------------------------------------------------------- Output
+    /** Exactly the fields the documentation promises - nothing variable. */
     public function toApi(?string $resultUrl = null): array
     {
         return [

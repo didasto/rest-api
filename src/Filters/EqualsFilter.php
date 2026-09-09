@@ -18,6 +18,6 @@ class EqualsFilter extends Filter
 
     public function description(): string
     {
-        return 'ist gleich';
+        return 'equals';
     }
 }

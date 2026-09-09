@@ -18,6 +18,6 @@ class LessOrEqualFilter extends Filter
 
     public function description(): string
     {
-        return 'kleiner oder gleich';
+        return 'less than or equal to';
     }
 }

@@ -18,6 +18,6 @@ class GreaterOrEqualFilter extends Filter
 
     public function description(): string
     {
-        return 'groesser oder gleich';
+        return 'greater than or equal to';
     }
 }

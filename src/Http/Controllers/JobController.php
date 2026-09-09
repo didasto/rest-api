@@ -18,35 +18,42 @@ use RuntimeException;
 use Throwable;
 
 /**
- * Basis fuer Job-APIs.
+ * Base class for job APIs.
  *
- * POST legt einen Lauf an, wirft die Jobs als Batch in die Queue und gibt
- * die id des Laufs zurueck. GET liefert den Stand - die Zahlen kommen live
- * aus dem Batch, die Jobs muessen nichts zurueckmelden.
+ * POST creates a run, puts the jobs on the queue as a batch and returns
+ * the id of the run. GET reports the state - the numbers are read live
+ * from the batch, so the jobs themselves report nothing.
  *
- * Zu implementieren ist nur jobs(); resultUrl() lohnt sich, sobald der
- * Lauf etwas erzeugt, das der Client danach abholen soll.
+ * Only jobs() has to be implemented. The remaining methods are extension
+ * points:
+ *
+ *   jobs()        which jobs make up the run
+ *   data()        how the input object is built
+ *   sanitize()    what of the input is stored, to keep secrets out
+ *   dispatch()    how the batch is put on the queue
+ *   resultUrl()   where the caller picks up what the run produced
+ *   find()        how a run is looked up
  */
 abstract class JobController
 {
     protected ?string $storeRequest = null;
 
-    /** Eingangsdaten des Laufs - Pflicht, damit die Kette typisiert anfaengt. */
+    /** Input of the run. Required, so the chain starts out typed. */
     protected ?string $dataClass = null;
 
-    /** Ergebnisobjekt, das die Kette gemeinsam fuellt. null = keines. */
+    /** Result object the chain fills together. Null means none. */
     protected ?string $resultClass = null;
 
     protected ?string $model = JobRun::class;
 
-    // ------------------------------------------------------------- Aktionen
+    // ------------------------------------------------------------- Actions
     public function store(Request $request): JsonResponse
     {
         $data = $this->data($this->formRequest()->validated());
         $jobs = $this->jobs($data);
 
         if ($jobs === []) {
-            throw new RuntimeException(static::class.': jobs() hat nichts zurueckgegeben.');
+            throw new RuntimeException(static::class.': jobs() returned nothing.');
         }
 
         $run = $this->newRun($data, $this->countJobs($jobs));
@@ -63,7 +70,10 @@ abstract class JobController
         return new JsonResponse(
             $run->toApi($this->resultUrl($run)),
             202,
-            ['Location' => $this->statusUrl($run), 'Retry-After' => (string) $this->retryAfter()],
+            [
+                'Location'    => $this->statusUrl($run),
+                'Retry-After' => (string) $this->retryAfter(),
+            ],
         );
     }
 
@@ -85,70 +95,29 @@ abstract class JobController
         return new JsonResponse($run->toApi($this->resultUrl($run)), 200);
     }
 
-    // ------------------------------------------------------------- Aufgaben
+    // ---------------------------------------------------------------- Work
     /**
-     * Die Jobs dieses Laufs.
+     * The jobs of this run.
      *
-     * Ein Element = ein Job, der gleichzeitig mit den uebrigen laeuft.
-     * Ein verschachteltes Array = eine Kette, die der Reihe nach laeuft -
-     * das ist Laravels eigene Batch-Konvention, keine Erfindung dieses
-     * Packages.
+     * One element is one job running alongside the others. A nested array
+     * is a chain that runs in order - that is Laravel's own batch
+     * convention, not an invention of this package.
      *
-     *   return [
-     *       [SucheProduktdatenJob::class, ErzeugeProduktJob::class],  // nacheinander
-     *       new PruefeBestandJob(),                                    // parallel dazu
-     *   ];
+     *     return [
+     *         [SearchProductJob::class, CreateProductJob::class],  // in order
+     *         new CheckStockJob(),                                  // alongside
+     *     ];
      *
-     * Klassennamen werden aufgeloest; wer Konstruktorargumente braucht,
-     * gibt eine fertige Instanz zurueck. Die Lauf-Nummer haengt das
-     * Package selbst an - im Job ist dafuer nichts zu tun.
+     * Class names are resolved; pass a ready made instance when the job
+     * needs constructor arguments. The run id is attached by the package.
      *
      * @return array<int, object|string|array>
      */
     abstract public function jobs(?JobData $data): array;
 
-    // ------------------------------------------------- Daten und Ergebnis
-    public function data(array $validated): ?JobData
-    {
-        return $this->dataClass ? $this->dataClass::fromArray($validated) : null;
-    }
-
-    public function newResult(): ?JobResult
-    {
-        return $this->resultClass ? $this->resultClass::fromArray([]) : null;
-    }
-
-    /** Jobs instanziieren und ihnen die Lauf-Nummer mitgeben - auch in Ketten. */
-    public function attach(array $jobs, JobRun $run): array
-    {
-        return array_map(function ($job) use ($run) {
-            if (is_array($job)) {
-                return $this->attach($job, $run);
-            }
-
-            $instance = is_string($job) ? new $job() : $job;
-
-            return method_exists($instance, 'forJobRun')
-                ? $instance->forJobRun($run->id)
-                : $instance;
-        }, $jobs);
-    }
-
-    /** Ketten zaehlen mit jedem Glied - sie sind im Batch einzelne Jobs. */
-    public function countJobs(array $jobs): int
-    {
-        $count = 0;
-
-        foreach ($jobs as $job) {
-            $count += is_array($job) ? $this->countJobs($job) : 1;
-        }
-
-        return $count;
-    }
-
     /**
-     * Wohin der Client nach dem Lauf greifen soll - eine echte Route, kein
-     * eingebettetes Ergebnis. null, solange es nichts abzuholen gibt.
+     * Where the caller picks up what the run produced - a real route, not
+     * an embedded payload. Null while there is nothing to fetch.
      */
     public function resultUrl(JobRun $run): ?string
     {
@@ -166,7 +135,45 @@ abstract class JobController
         return $queue ? $batch->onQueue($queue)->dispatch() : $batch->dispatch();
     }
 
-    // ------------------------------------------------------------- Laeufe
+    // ------------------------------------------------------- Data and runs
+    public function data(array $validated): ?JobData
+    {
+        return $this->dataClass ? $this->dataClass::fromArray($validated) : null;
+    }
+
+    public function newResult(): ?JobResult
+    {
+        return $this->resultClass ? $this->resultClass::fromArray([]) : null;
+    }
+
+    /** Instantiate the jobs and hand each of them the run id, chains included. */
+    public function attach(array $jobs, JobRun $run): array
+    {
+        return array_map(function ($job) use ($run) {
+            if (is_array($job)) {
+                return $this->attach($job, $run);
+            }
+
+            $instance = is_string($job) ? new $job() : $job;
+
+            return method_exists($instance, 'forJobRun')
+                ? $instance->forJobRun($run->id)
+                : $instance;
+        }, $jobs);
+    }
+
+    /** Chains count per link - inside a batch they are individual jobs. */
+    public function countJobs(array $jobs): int
+    {
+        $count = 0;
+
+        foreach ($jobs as $job) {
+            $count += is_array($job) ? $this->countJobs($job) : 1;
+        }
+
+        return $count;
+    }
+
     public function newRun(?JobData $data, int $total): JobRun
     {
         $class  = $this->model ?? JobRun::class;
@@ -186,7 +193,7 @@ abstract class JobController
         ]);
     }
 
-    /** Was von den Eingangsdaten gespeichert wird - hier lassen sich Geheimnisse entfernen. */
+    /** What of the input is stored - a good place to drop secrets. */
     public function sanitize(array $data): array
     {
         return $data;
@@ -202,7 +209,7 @@ abstract class JobController
             ->sync();
     }
 
-    // ------------------------------------------------------------- Umfeld
+    // ------------------------------------------------------------ Context
     public function attribute(): ?RestJob
     {
         $attributes = (new ReflectionClass(static::class))->getAttributes(RestJob::class);
@@ -215,13 +222,13 @@ abstract class JobController
         $attribute = $this->attribute();
 
         if (! $attribute) {
-            throw new RuntimeException(static::class.': #[RestJob] fehlt.');
+            throw new RuntimeException(static::class.': #[RestJob] is missing.');
         }
 
         return $attribute->key;
     }
 
-    /** Wie bei den Ressourcen: eine Stelle, an der die Requests stehen. */
+    /** Same idea as on resources: one place that knows the request classes. */
     public function requestFor(string $action): ?string
     {
         return $action === 'store' ? $this->storeRequest : null;
@@ -230,7 +237,7 @@ abstract class JobController
     public function formRequest(): RestRequest
     {
         if (! $this->storeRequest) {
-            throw new RuntimeException(static::class.': $storeRequest ist nicht gesetzt.');
+            throw new RuntimeException(static::class.': $storeRequest is not set.');
         }
 
         return app($this->storeRequest);

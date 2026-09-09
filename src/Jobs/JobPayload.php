@@ -2,22 +2,38 @@
 
 namespace Didasto\RestApi\Jobs;
 
+use BackedEnum;
+use DateTimeInterface;
 use ReflectionClass;
 use ReflectionNamedType;
 use ReflectionProperty;
 
 /**
- * Gemeinsame Basis von JobData und JobResult.
+ * Shared base of JobData and JobResult.
  *
- * Beide sind schlichte Objekte mit oeffentlichen Feldern; hin und zurueck
- * uebersetzt wird ueber Reflection, damit beim Anlegen eines neuen Feldes
- * nichts zusaetzlich gepflegt werden muss.
+ * Both are plain objects with public fields. Conversion in either
+ * direction goes through reflection, so adding a field means adding a
+ * property and nothing else.
  */
 abstract class JobPayload
 {
     public static function fromArray(array $values): static
     {
-        $instance = (new ReflectionClass(static::class))->newInstanceWithoutConstructor();
+        $reflection = new ReflectionClass(static::class);
+        $instance   = $reflection->newInstanceWithoutConstructor();
+
+        // Without calling the constructor, defaults of promoted parameters
+        // never apply: the property would stay uninitialized and the first
+        // read would fail. Fill them in here.
+        foreach ($reflection->getConstructor()?->getParameters() ?? [] as $parameter) {
+            $name = $parameter->getName();
+
+            if ($parameter->isPromoted()
+                && $parameter->isDefaultValueAvailable()
+                && ! array_key_exists($name, $values)) {
+                $values[$name] = $parameter->getDefaultValue();
+            }
+        }
 
         foreach (static::fields() as $property) {
             $name = $property->getName();
@@ -91,11 +107,11 @@ abstract class JobPayload
             return $value->toArray();
         }
 
-        if ($value instanceof \BackedEnum) {
+        if ($value instanceof BackedEnum) {
             return $value->value;
         }
 
-        if ($value instanceof \DateTimeInterface) {
+        if ($value instanceof DateTimeInterface) {
             return $value->format(DATE_RFC3339_EXTENDED);
         }
 

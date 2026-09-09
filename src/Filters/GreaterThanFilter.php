@@ -18,6 +18,6 @@ class GreaterThanFilter extends Filter
 
     public function description(): string
     {
-        return 'groesser als';
+        return 'greater than';
     }
 }
