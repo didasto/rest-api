@@ -11,6 +11,7 @@ the heading, such as `## [Unreleased] [minor]`, always wins.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-09-09
 First stable release.
 
 ### Added
@@ -45,3 +46,4 @@ First stable release.
   `private`. See the "Extension points" section of the README.
 - Responses are flat JSON. Pagination is reported in the `X-Total-Count`,
   `X-Page`, `X-Per-Page`, `X-Last-Page` and `Link` headers.
+
