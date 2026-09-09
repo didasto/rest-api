@@ -11,8 +11,6 @@ the heading, such as `## [Unreleased] [minor]`, always wins.
 
 ## [Unreleased]
 
-## [1.0.0] - 2026-09-09
-
 First stable release.
 
 ### Added
