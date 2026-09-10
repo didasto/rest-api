@@ -50,7 +50,8 @@ def detect_bump(heading, body):
     return "patch"
 
 
-def last_version():
+def tagged_version():
+    """Newest version that exists as a git tag."""
     try:
         out = subprocess.run(
             ["git", "tag", "--list", "v[0-9]*", "--sort=-v:refname"],
@@ -58,11 +59,33 @@ def last_version():
         ).stdout.split()
     except subprocess.CalledProcessError:
         out = []
+
     for tag in out:
         m = re.fullmatch(r"v(\d+)\.(\d+)\.(\d+)", tag)
         if m:
             return tuple(int(x) for x in m.groups())
+
     return (0, 0, 0)
+
+
+def documented_version(text):
+    """Newest version that has a released section in the CHANGELOG."""
+    found = [
+        tuple(int(x) for x in m.groups())
+        for m in re.finditer(r"^##\s*\[(\d+)\.(\d+)\.(\d+)\]", text, re.MULTILINE)
+    ]
+
+    return max(found) if found else (0, 0, 0)
+
+
+def last_version(text):
+    """
+    The higher of the two. A fresh clone of a repository whose history was
+    imported carries the CHANGELOG but not the tags - going by tags alone
+    would then restart the numbering at 0.0.1 and quietly undo a release
+    that has already been published.
+    """
+    return max(tagged_version(), documented_version(text))
 
 
 def bump(version, kind):
@@ -97,7 +120,7 @@ def main():
         sys.exit(78)
 
     kind = detect_bump(heading, body)
-    new = bump(last_version(), kind)
+    new = bump(last_version(text), kind)
     tag = "v%d.%d.%d" % new
 
     if check_only:

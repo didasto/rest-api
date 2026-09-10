@@ -10,6 +10,8 @@ instead of implement.
 
 **Documentation: [English](README.EN.md) · [Deutsch](README.DE.md)**
 
+Requires PHP 8.3 or newer and Laravel 12 or 13.
+
 ```bash
 composer require didasto/rest-api
 ```

@@ -9,7 +9,28 @@ bump from it: `### Removed` or the word BREAKING means major, `### Added` or
 `### Changed` means minor, anything else means patch. An explicit marker in
 the heading, such as `## [Unreleased] [minor]`, always wins.
 
-## [Unreleased]
+## [Unreleased] [major]
+
+### Removed
+
+- Support for Laravel 11. The package now requires Laravel 12 or 13, which
+  is what the test matrix covers.
+
+### Fixed
+
+- `config/rest-api.php` declared a `fields` query key that nothing read. The
+  key is gone; sparse fieldsets are a feature to decide on separately, not
+  something the config should imply.
+- The release script derived the next version from the git tags alone. In a
+  repository whose history was imported without its tags that restarts the
+  numbering at `0.0.1` and quietly undoes a release that is already
+  published - which is exactly what produced `v0.1.0` for a package whose
+  CHANGELOG said `1.0.0`. It now takes the higher of the newest tag and the
+  newest released section of this file.
+
+### Added
+
+- Both READMEs state the requirements: PHP 8.3 or newer, Laravel 12 or 13.
 
 ## [0.1.0] - 2026-09-09
 First stable release.
