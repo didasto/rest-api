@@ -34,6 +34,8 @@ The design rule of this package: **nothing is `final`, nothing is
 
 ## Installation
 
+**Requirements:** PHP 8.3 or newer, Laravel 12 or 13.
+
 ```bash
 composer require didasto/rest-api
 php artisan migrate                 # only needed for job APIs
