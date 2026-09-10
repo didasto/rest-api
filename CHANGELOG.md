@@ -9,8 +9,9 @@ bump from it: `### Removed` or the word BREAKING means major, `### Added` or
 `### Changed` means minor, anything else means patch. An explicit marker in
 the heading, such as `## [Unreleased] [minor]`, always wins.
 
-## [Unreleased] [major]
+## [Unreleased]
 
+## [1.0.0] - 2026-09-10
 ### Removed
 
 - Support for Laravel 11. The package now requires Laravel 12 or 13, which
