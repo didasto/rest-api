@@ -54,7 +54,6 @@ return [
         'sort'     => 'sort',
         'page'     => 'page',
         'per_page' => 'per_page',
-        'fields'   => 'fields',
         'with'     => 'with',
     ],
 

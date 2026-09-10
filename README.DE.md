@@ -34,6 +34,8 @@ Jede Stufe jedes Requests lässt sich einzeln ersetzen. Siehe
 
 ## Installation
 
+**Voraussetzungen:** PHP 8.3 oder neuer, Laravel 12 oder 13.
+
 ```bash
 composer require didasto/rest-api
 php artisan migrate                 # nur für Job-APIs nötig
