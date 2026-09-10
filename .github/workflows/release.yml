@@ -3,6 +3,15 @@ name: Release
 on:
   push:
     branches: [main]
+    # Documentation, tests and CI changes go into main without a release.
+    # CHANGELOG.md stays out of this list so a changelog-only commit can still release.
+    paths-ignore:
+      - 'README*.md'
+      - 'docs/**'
+      - '.github/**'
+      - 'tests/**'
+      - 'FEATURES.md'
+      - 'LICENSE'
   workflow_dispatch:
     inputs:
       version:
