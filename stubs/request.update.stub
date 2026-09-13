@@ -1,0 +1,19 @@
+<?php
+
+namespace {{ namespace }};
+
+use Didasto\RestApi\Http\Requests\RestRequest;
+
+/**
+ * PUT and PATCH share these rules. Write 'sometimes' into a rule to allow
+ * a partial update - the package does not rewrite anything for you.
+ */
+class {{ class }} extends RestRequest
+{
+    public function rules(): array
+    {
+        return [
+{{ rules }}
+        ];
+    }
+}

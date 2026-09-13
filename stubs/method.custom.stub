@@ -1,0 +1,6 @@
+    #[{{ verb }}('{{ path }}', name: '{{ routeName }}')]
+    #[ApiOperation(summary: '{{ summary }}', tag: '{{ tag }}')]
+    public function {{ method }}({{ signature }}): JsonResponse
+    {
+        return new JsonResponse([]);
+    }

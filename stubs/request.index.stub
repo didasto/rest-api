@@ -1,0 +1,28 @@
+<?php
+
+namespace {{ namespace }};
+
+use Didasto\RestApi\Http\Requests\IndexRequest;
+{{ useStatements }}
+class {{ class }} extends IndexRequest
+{
+    /** field => filter or filter group; the OpenAPI document is built from this. */
+    public function filters(): array
+    {
+        return [
+{{ filters }}
+        ];
+    }
+
+    /** Empty means every column may be sorted by. */
+    public function sortable(): array
+    {
+        return [{{ sortable }}];
+    }
+
+    /** Empty disables ?with entirely. */
+    public function relations(): array
+    {
+        return [];
+    }
+}

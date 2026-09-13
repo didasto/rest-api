@@ -1,0 +1,16 @@
+<?php
+
+namespace {{ namespace }};
+
+use Didasto\RestApi\Http\Requests\RestRequest;
+
+class {{ class }} extends RestRequest
+{
+    /** The validated input becomes {{ dataClass }}. */
+    public function rules(): array
+    {
+        return [
+            //
+        ];
+    }
+}

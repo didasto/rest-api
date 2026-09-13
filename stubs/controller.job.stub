@@ -1,0 +1,33 @@
+<?php
+
+namespace {{ namespace }};
+
+use Didasto\RestApi\Attributes\RestJob;
+use Didasto\RestApi\Http\Controllers\JobController;
+use Didasto\RestApi\Jobs\JobData;
+{{ useStatements }}
+/**
+ * POST starts a run and answers with its id, GET reports the progress,
+ * DELETE cancels it.
+ */
+#[RestJob(key: '{{ key }}', uri: '{{ uri }}', cancellable: true)]
+class {{ class }} extends JobController
+{
+    protected ?string $storeRequest = {{ requestClass }}::class;
+
+    protected ?string $dataClass = {{ dataClass }}::class;
+
+    protected ?string $resultClass = {{ resultClass }};
+
+    /**
+     * The jobs of one run. A nested array is a chain that runs in order,
+     * everything else runs alongside. The run id is attached by the
+     * package, so the jobs need no constructor argument for it.
+     */
+    public function jobs(?JobData $data): array
+    {
+        return [
+            new {{ jobClass }}(),
+        ];
+    }
+}

@@ -1,0 +1,17 @@
+<?php
+
+namespace {{ namespace }};
+
+use Illuminate\Http\JsonResponse;
+use Illuminate\Routing\Controller;
+use Spatie\RouteAttributes\Attributes\Prefix;
+{{ useStatements }}
+/**
+ * A hand written endpoint. The routing comes from the Spatie route
+ * attributes, the documentation from #[ApiOperation].
+ */
+#[Prefix('{{ uri }}')]
+class {{ class }} extends Controller
+{
+{{ methods }}
+}

@@ -1,0 +1,16 @@
+<?php
+
+namespace {{ namespace }};
+
+use Didasto\RestApi\Jobs\JobData;
+
+/**
+ * The input of a run. Public properties only - they are filled from the
+ * validated request and are available in every job of the chain.
+ */
+class {{ class }} extends JobData
+{
+    public function __construct(
+        //
+    ) {}
+}

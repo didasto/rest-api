@@ -1,0 +1,22 @@
+<?php
+
+namespace {{ namespace }};
+
+use Didasto\RestApi\Jobs\InteractsWithJobRun;
+use Illuminate\Bus\Batchable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Queue\Queueable;
+{{ useStatements }}
+class {{ class }} implements ShouldQueue
+{
+    use Batchable, InteractsWithJobRun, Queueable;
+
+    public function handle(): void
+    {
+        // $data = $this->data();
+        //
+        // $this->updateResult(function ({{ resultClass }} $result) {
+        //     //
+        // });
+    }
+}

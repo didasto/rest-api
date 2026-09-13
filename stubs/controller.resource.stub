@@ -1,0 +1,25 @@
+<?php
+
+namespace {{ namespace }};
+
+use {{ modelNamespace }};
+use Didasto\RestApi\Attributes\RestResource;
+use Didasto\RestApi\Http\Controllers\RestController;
+{{ useStatements }}
+
+#[RestResource(model: {{ model }}::class{{ actionArgument }})]
+class {{ class }} extends RestController
+{
+    /**
+     * Which request class belongs to which action. Every method of
+     * RestController may be overridden here - query(), prepare(),
+     * persist(), transform() and find() are the usual ones.
+     */
+    public function requestFor(string $action): ?string
+    {
+        return match ($action) {
+{{ requestMatch }}
+            default => null,
+        };
+    }
+}
