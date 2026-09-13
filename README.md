@@ -14,6 +14,7 @@ Requires PHP 8.3 or newer and Laravel 12 or 13.
 
 ```bash
 composer require didasto/rest-api
+php artisan make:rest-api Member --model=Member
 ```
 
 Nothing in this package is `final` and nothing is `private`, so every step

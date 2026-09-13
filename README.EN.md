@@ -19,6 +19,7 @@ The design rule of this package: **nothing is `final`, nothing is
 ## Contents
 
 - [Installation](#installation)
+- [Generating an API](#generating-an-api)
 - [A model resource in three files](#a-model-resource-in-three-files)
 - [How a request flows](#how-a-request-flows)
 - [Filters](#filters)
@@ -52,6 +53,105 @@ php artisan vendor:publish --tag=rest-api-config
 > routes. The package throws on an unknown action name and says so.
 
 ---
+
+---
+
+## Generating an API
+
+The generators write ordinary code. Nothing they produce is special: every
+file can be edited afterwards, and every method of the base classes can be
+overridden as usual.
+
+```bash
+php artisan make:rest-api Member --model=Member
+```
+
+writes four files:
+
+```
+app/Http/Controllers/Api/MemberController.php
+app/Http/Requests/Api/MemberIndexRequest.php
+app/Http/Requests/Api/MemberStoreRequest.php
+app/Http/Requests/Api/MemberUpdateRequest.php
+```
+
+`show` and `destroy` get no request class, because they have no body to
+validate.
+
+### Which actions
+
+The full set is the default. To narrow it, the same words the attribute
+uses:
+
+```bash
+php artisan make:rest-api Member --model=Member --read-only     # index, show
+php artisan make:rest-api Member --model=Member --only=index,show,store
+php artisan make:rest-api Member --model=Member --except=destroy
+```
+
+`--only` and `--except` together are refused rather than silently ranked,
+and an unknown action name lists the ones that exist.
+
+### What is drafted, and what is not
+
+The rules in the store and update request are drafted from the table
+columns — but only when the table really exists. Without one the rules stay
+empty with a note, because half true rules that nobody reads are worse than
+none. The primary key, the timestamps and the model's `$hidden` fields are
+never asked of the caller.
+
+Filters are **not** derived automatically. Which fields may be filtered on
+is a decision about the interface, not a detail of the schema — an
+automatic derivation happily offers `filter[password_reset_token]`. Ask for
+a suggestion explicitly:
+
+```bash
+php artisan make:rest-api Member --model=Member --filters
+```
+
+### Without a model
+
+Without `--model` a hand written API is written: routing through the Spatie
+route attributes, documentation through `#[ApiOperation]`.
+
+```bash
+php artisan make:rest-api CashBook --actions=close,balance
+```
+
+A name that reads like a write (`close`, `import`, `send`, …) becomes a
+POST, everything else a GET. Without `--actions` you get one `__invoke`
+method as a starting point.
+
+### Job APIs
+
+```bash
+php artisan make:rest-job ImportMembers --result
+```
+
+writes the controller, its request, the typed input, the result object and
+a first job.
+
+### Further options
+
+| Option | Meaning |
+| --- | --- |
+| `--test` | also write a feature test |
+| `--path=` | target directory, overrides the configuration |
+| `--force` | overwrite existing files |
+
+Without `--force` an existing file is kept and the command says which one.
+If the target directory is not listed in `rest-api.directories`, the
+command says so — a controller outside those directories is never routed.
+
+### Your own stubs
+
+```bash
+php artisan vendor:publish --tag=rest-api-stubs
+```
+
+copies the templates to `stubs/rest-api`. A file that exists there is used
+instead of the one shipped with the package, so a project can generate code
+in its own house style without touching the package.
 
 ## A model resource in three files
 
