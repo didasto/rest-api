@@ -9,8 +9,9 @@ bump from it: `### Removed` or the word BREAKING means major, `### Added` or
 `### Changed` means minor, anything else means patch. An explicit marker in
 the heading, such as `## [Unreleased] [minor]`, always wins.
 
-## [Unreleased] [minor]
+## [Unreleased]
 
+## [1.1.0] - 2026-09-13
 ### Added
 
 - **Generators.** `php artisan make:rest-api` writes a controller and the
