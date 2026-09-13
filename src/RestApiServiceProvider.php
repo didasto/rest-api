@@ -2,6 +2,8 @@
 
 namespace Didasto\RestApi;
 
+use Didasto\RestApi\Console\MakeRestApiCommand;
+use Didasto\RestApi\Console\MakeRestJobCommand;
 use Didasto\RestApi\Console\PruneJobRunsCommand;
 use Didasto\RestApi\OpenApi\DocumentationController;
 use Didasto\RestApi\OpenApi\Generator;
@@ -39,10 +41,20 @@ class RestApiServiceProvider extends ServiceProvider
             __DIR__.'/../config/rest-api.php' => config_path('rest-api.php'),
         ], 'rest-api-config');
 
+        // Published stubs win over the ones of the package, so a project
+        // can generate code in its own house style.
+        $this->publishes([
+            __DIR__.'/../stubs' => base_path('stubs/rest-api'),
+        ], 'rest-api-stubs');
+
         $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
 
         if ($this->app->runningInConsole()) {
-            $this->commands([PruneJobRunsCommand::class]);
+            $this->commands([
+                MakeRestApiCommand::class,
+                MakeRestJobCommand::class,
+                PruneJobRunsCommand::class,
+            ]);
         }
 
         // With cached routes there is nothing to register - doing it anyway

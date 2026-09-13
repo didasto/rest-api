@@ -1,0 +1,20 @@
+<?php
+
+namespace {{ namespace }};
+
+use Tests\TestCase;
+
+class {{ class }} extends TestCase
+{
+    public function test_the_listing_answers(): void
+    {
+        $this->getJson('{{ route }}')->assertOk();
+    }
+
+    public function test_the_endpoint_is_documented(): void
+    {
+        $this->getJson('{{ documentation }}')
+            ->assertOk()
+            ->assertJsonPath('paths.{{ route }}.get.tags.0', '{{ tag }}');
+    }
+}

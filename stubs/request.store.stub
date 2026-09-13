@@ -1,0 +1,16 @@
+<?php
+
+namespace {{ namespace }};
+
+use Didasto\RestApi\Http\Requests\RestRequest;
+
+class {{ class }} extends RestRequest
+{
+    /** These rules validate the body and are the source of the OpenAPI schema. */
+    public function rules(): array
+    {
+        return [
+{{ rules }}
+        ];
+    }
+}

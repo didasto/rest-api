@@ -19,6 +19,7 @@ Jede Stufe jedes Requests lässt sich einzeln ersetzen. Siehe
 ## Inhalt
 
 - [Installation](#installation)
+- [Eine API generieren](#eine-api-generieren)
 - [Eine Model-Ressource in drei Dateien](#eine-model-ressource-in-drei-dateien)
 - [Der Weg eines Requests](#der-weg-eines-requests)
 - [Filter](#filter)
@@ -53,6 +54,106 @@ php artisan vendor:publish --tag=rest-api-config
 > wirft das Package eine Exception und sagt genau das.
 
 ---
+
+---
+
+## Eine API generieren
+
+Die Generatoren schreiben gewöhnlichen Code. Nichts davon ist besonders:
+jede Datei lässt sich danach bearbeiten, und jede Methode der Basisklassen
+bleibt wie gewohnt überschreibbar.
+
+```bash
+php artisan make:rest-api Member --model=Member
+```
+
+schreibt vier Dateien:
+
+```
+app/Http/Controllers/Api/MemberController.php
+app/Http/Requests/Api/MemberIndexRequest.php
+app/Http/Requests/Api/MemberStoreRequest.php
+app/Http/Requests/Api/MemberUpdateRequest.php
+```
+
+`show` und `destroy` bekommen keine Request-Klasse — sie haben keinen Body
+zu validieren.
+
+### Welche Aktionen
+
+Der volle Satz ist die Vorgabe. Zum Einschränken dieselben Wörter, die auch
+das Attribut benutzt:
+
+```bash
+php artisan make:rest-api Member --model=Member --read-only     # index, show
+php artisan make:rest-api Member --model=Member --only=index,show,store
+php artisan make:rest-api Member --model=Member --except=destroy
+```
+
+`--only` und `--except` zusammen werden abgelehnt statt stillschweigend
+gewichtet, und ein unbekannter Aktionsname nennt die vorhandenen.
+
+### Was entworfen wird — und was nicht
+
+Die Regeln im Store- und Update-Request werden aus den Tabellenspalten
+entworfen, aber nur wenn die Tabelle wirklich existiert. Ohne sie bleiben
+die Regeln leer mit einem Hinweis: halbwahre Regeln, die niemand mehr
+liest, sind schlechter als gar keine. Primärschlüssel, Timestamps und die
+`$hidden`-Felder des Models werden nie vom Aufrufer verlangt.
+
+Filter werden **nicht** automatisch abgeleitet. Welche Felder filterbar
+sein dürfen, ist eine Entscheidung über die Schnittstelle und kein Detail
+des Schemas — eine automatische Ableitung bietet bereitwillig
+`filter[password_reset_token]` an. Vorschläge gibt es nur auf Nachfrage:
+
+```bash
+php artisan make:rest-api Member --model=Member --filters
+```
+
+### Ohne Model
+
+Ohne `--model` entsteht eine handgeschriebene API: Routing über die
+Spatie-Route-Attribute, Dokumentation über `#[ApiOperation]`.
+
+```bash
+php artisan make:rest-api CashBook --actions=close,balance
+```
+
+Ein Name, der nach Schreiben klingt (`close`, `import`, `send`, …), wird
+POST, alles andere GET. Ohne `--actions` gibt es eine `__invoke`-Methode als
+Ausgangspunkt.
+
+### Job-APIs
+
+```bash
+php artisan make:rest-job ImportMembers --result
+```
+
+schreibt den Controller, seinen Request, das typisierte Eingabeobjekt, das
+Ergebnisobjekt und einen ersten Job.
+
+### Weitere Optionen
+
+| Option | Bedeutung |
+| --- | --- |
+| `--test` | zusätzlich einen Feature-Test schreiben |
+| `--path=` | Zielverzeichnis, überschreibt die Konfiguration |
+| `--force` | vorhandene Dateien überschreiben |
+
+Ohne `--force` bleibt eine vorhandene Datei stehen, und das Kommando sagt
+welche. Liegt das Zielverzeichnis in keinem Eintrag von
+`rest-api.directories`, weist das Kommando darauf hin — ein Controller
+ausserhalb dieser Verzeichnisse bekommt nie Routen.
+
+### Eigene Stubs
+
+```bash
+php artisan vendor:publish --tag=rest-api-stubs
+```
+
+kopiert die Vorlagen nach `stubs/rest-api`. Eine Datei, die dort liegt,
+wird der des Packages vorgezogen — so generiert ein Projekt Code im
+eigenen Hausstil, ohne das Package anzufassen.
 
 ## Eine Model-Ressource in drei Dateien
 

@@ -9,7 +9,25 @@ bump from it: `### Removed` or the word BREAKING means major, `### Added` or
 `### Changed` means minor, anything else means patch. An explicit marker in
 the heading, such as `## [Unreleased] [minor]`, always wins.
 
-## [Unreleased]
+## [Unreleased] [minor]
+
+### Added
+
+- **Generators.** `php artisan make:rest-api` writes a controller and the
+  request classes that belong to it, `php artisan make:rest-job` writes a
+  whole job API - controller, request, input object and a first job.
+  `--only`, `--except` and `--read-only` use the same words as the
+  attribute, `--model` resolves a model the way Laravel's own generators
+  do, and without a model a hand written API is written instead.
+- **Publishable stubs.** `vendor:publish --tag=rest-api-stubs` copies the
+  templates to `stubs/rest-api`, where a project can change them. A
+  published stub always wins over the one of the package.
+- Validation rules are drafted from the table columns - but only when the
+  table really exists. Filters are only suggested with `--filters`: which
+  fields may be filtered on is a decision, not a schema detail.
+- `illuminate/console`, `illuminate/filesystem` and `laravel/prompts` are
+  now declared. They were used by the prune command already and only
+  worked because a full Laravel application ships them anyway.
 
 ## [1.0.0] - 2026-09-10
 ### Removed
